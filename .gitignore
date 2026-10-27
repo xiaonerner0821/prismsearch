@@ -1,0 +1,84 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+*.js.map
+*.d.ts.map
+
+# 环境变量（.env.example 是提交进仓库的模板）
+.env
+.env.*
+!.env.example
+
+# 数据库文件（含 SQLite WAL 模式产物）
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# 本地运行数据与日志（缓存库默认写入 ./data）
+data/
+logs/
+*.log
+npm-debug.log*
+
+# 本地私有配置（可能包含 API Key，切勿提交）
+prismsearch.yaml
+prismsearch.yml
+prismsearch.json
+prismsearch.toml
+prismsearch.*.yaml
+prismsearch.*.yml
+prismsearch.*.json
+prismsearch.*.toml
+config/local*
+config/*.local.*
+
+# 证书与私钥
+*.pem
+*.key
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# AI 编码助手本地配置
+.claude/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 测试覆盖率
+coverage/
+
+# npm 打包产物
+*.tgz
+release-audit/
+release-artifacts/
+third-party-npm.json
+third-party-npm.md
+*-sbom.cdx.json
+py-worker-pip-inspect.json
+
+# 临时文件
+tmp/
+temp/
+
+# 仅忽略本地 Demo 素材；发布指南与仓库初始化脚本属于公开治理文档
+scripts/dev/demo/
+
+# Worker 的独立依赖与产物（各自有 package.json / pyproject.toml）
+workers/ts-worker/node_modules/
+workers/ts-worker/dist/
+workers/py-worker/.venv/
+workers/py-worker/build/
+workers/py-worker/*.egg-info/
+workers/**/__pycache__/
+workers/**/.pytest_cache/
+workers/**/.ruff_cache/

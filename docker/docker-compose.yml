@@ -1,0 +1,131 @@
+# PrismSearch Docker Compose 配置
+#
+# 使用：
+#   docker compose -f docker/docker-compose.yml up -d --build
+# 或直接使用预构建镜像（发布后可用）：
+#   image: ghcr.io/xiaonerner0821/prismsearch:latest
+#
+# 启用抓取 Worker（浏览器渲染 / 指纹伪装）：
+#   PRISMSEARCH_WORKERS_ENABLED=true PRISMSEARCH_WORKER_TOKEN=<随机长字符串> \
+#     docker compose -f docker/docker-compose.yml --profile with-workers up -d --build
+# profile 只决定启动哪些容器，不会改主服务配置，所以要同时设置 PRISMSEARCH_WORKERS_ENABLED=true。
+
+services:
+  # 主服务
+  prismsearch:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      # 默认只发布到宿主机回环地址。确需对外开放时改为 "3000:3000"（或 "0.0.0.0:3000:3000"），
+      # 并务必放在 HTTPS 反向代理之后；鉴权由 PRISMSEARCH_AUTH_TOKENS 强制开启
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # 挂载配置目录（只读）。注意：程序不会自动读取 /app/config/default.yaml，
+      # 需要用 PRISMSEARCH_CONFIG 显式指向要加载的配置文件（见下方 environment）。
+      # 改完配置后可触发 POST /admin/config/reload（需在配置里开启 server.enableAdminApi
+      # 且必须带鉴权），或直接重启容器。
+      - ../config:/app/config:ro
+      - prismsearch-data:/app/data
+      - prismsearch-logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - PRISMSEARCH_SERVER_TRANSPORT=http
+      - PRISMSEARCH_SERVER_HOST=0.0.0.0
+      - PRISMSEARCH_SERVER_PORT=3000
+      # 要加载挂载进来的配置文件时取消注释（不设置则使用内置默认值）
+      # - PRISMSEARCH_CONFIG=/app/config/default.yaml
+      # 监听 0.0.0.0 时必须开启鉴权，否则服务拒绝启动（逗号分隔可配多个令牌）。
+      # 设置该变量即自动开启 security.auth，无需再额外配 enabled: true。
+      - PRISMSEARCH_AUTH_TOKENS=${PRISMSEARCH_AUTH_TOKENS:?必须设置 PRISMSEARCH_AUTH_TOKENS}
+      # ---- 抓取 Worker（配合 --profile with-workers）----
+      # 默认 false：不启动 Worker 时主服务不会去探测不存在的地址。
+      # 即使开启后 Worker 不可达，主服务也不会崩溃：健康检查失败只把 Worker 标记为不健康，
+      # 浏览器渲染请求回退为 HTTP 抓取（fallbackToLocal 默认 true），并在日志里给出警告。
+      - PRISMSEARCH_WORKERS__ENABLED=${PRISMSEARCH_WORKERS_ENABLED:-false}
+      # browser：只有需要浏览器渲染时才委派（只会用到 ts-worker）；
+      # always：所有抓取都走 Worker（py-worker 的 TLS 指纹伪装才会用上）
+      - PRISMSEARCH_WORKERS__USE_FOR=${PRISMSEARCH_WORKERS_USE_FOR:-browser}
+      # 数组字段用 JSON 覆盖；端点不写 token 时回落到下面的 PRISMSEARCH_WORKER_TOKEN
+      - 'PRISMSEARCH_WORKERS__ENDPOINTS=[{"name":"ts-1","url":"http://ts-worker:8787","allowInsecureHttp":true,"weight":100,"maxConcurrency":4},{"name":"py-1","url":"http://py-worker:8788","allowInsecureHttp":true,"weight":50,"maxConcurrency":8}]'
+      - 'PRISMSEARCH_WORKERS__ALLOWED_ORIGINS=["http://ts-worker:8787","http://py-worker:8788"]'
+      - PRISMSEARCH_WORKER_TOKEN=${PRISMSEARCH_WORKER_TOKEN:-}
+      # 缓存后端：sqlite（默认）/ memory / redis。配合 --profile with-redis 时设为 redis
+      - PRISMSEARCH_CACHE_BACKEND=${PRISMSEARCH_CACHE_BACKEND:-sqlite}
+      - PRISMSEARCH_CACHE_REDIS_URL=redis://redis:6379
+      # 与下方 redis 服务的 requirepass 相同；单独传入，不必对特殊字符做 URL 编码。空值视为未设置
+      - PRISMSEARCH_CACHE_REDIS_PASSWORD=${PRISMSEARCH_REDIS_PASSWORD:-}
+      # API 凭据推荐通过环境变量注入（不要写进配置文件再提交到版本库）：
+      # - GOOGLE_API_KEY=AIza...
+      # - GOOGLE_CSE_ID=0123456789abcdef0
+      # - BRAVE_API_KEY=BSA...
+    restart: unless-stopped
+
+  # 浏览器渲染 Worker（可选，使用 --profile with-workers 启动）
+  # 不向宿主机发布端口，主服务通过 compose 内部网络访问 http://ts-worker:8787
+  ts-worker:
+    build:
+      context: ../workers/ts-worker
+    profiles:
+      - with-workers
+    environment:
+      - WORKER_HOST=0.0.0.0
+      - WORKER_PORT=8787
+      - WORKER_MAX_CONCURRENCY=4
+      # 未设置 token 时 Worker 会拒绝在 0.0.0.0 上启动（容器反复退出），这是有意的保护
+      - PRISMSEARCH_WORKER_TOKEN=${PRISMSEARCH_WORKER_TOKEN:-}
+    shm_size: "1gb"   # Chromium 崩溃的常见原因是默认 /dev/shm 太小
+    restart: unless-stopped
+
+  # 指纹伪装 + trafilatura 正文提取 Worker（可选，使用 --profile with-workers 启动）
+  # 不向宿主机发布端口，主服务通过 compose 内部网络访问 http://py-worker:8788
+  py-worker:
+    build:
+      context: ../workers/py-worker
+    profiles:
+      - with-workers
+    environment:
+      - WORKER_HOST=0.0.0.0
+      - WORKER_PORT=8788
+      - WORKER_MAX_CONCURRENCY=8
+      # 同上：缺 token 时 Worker 自己拒绝启动
+      - PRISMSEARCH_WORKER_TOKEN=${PRISMSEARCH_WORKER_TOKEN:-}
+    restart: unless-stopped
+
+  # Redis 缓存后端（可选）。启用方式：
+  #   PRISMSEARCH_CACHE_BACKEND=redis PRISMSEARCH_REDIS_PASSWORD=<随机长字符串> \
+  #     docker compose -f docker/docker-compose.yml --profile with-redis up -d --build
+  # 镜像已内置 redis 客户端；Redis 不可达时主服务会记录警告并回退到内存缓存。
+  # 缓存里可能有查询词和抓取正文，因此强制设置密码：未设置 PRISMSEARCH_REDIS_PASSWORD 时容器拒绝启动
+  # （与 Worker 缺 token 拒绝启动的做法一致）。默认不向宿主机发布 6379 端口，只在 compose 内部网络可达；
+  # 确需从宿主机访问时改为 "127.0.0.1:6379:6379"。
+  # 镜像按 digest 固定（tag 仅便于阅读），由 Dependabot（docker-compose 生态）提 PR 更新。
+  redis:
+    image: redis:7-alpine@sha256:6ba19c50b56777f5c11c58eff8ddb69d0d5f27ba131cffb63f180ccfd43c66af
+    profiles:
+      - with-redis
+    environment:
+      - REDIS_PASSWORD=${PRISMSEARCH_REDIS_PASSWORD:-}
+    # 密码经环境变量传入（$$ 让 compose 不做插值），不会出现在 docker inspect 的启动命令里
+    command:
+      - sh
+      - -c
+      - |
+        if [ -z "$$REDIS_PASSWORD" ]; then
+          echo '拒绝启动：必须设置 PRISMSEARCH_REDIS_PASSWORD' >&2
+          exit 1
+        fi
+        exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  prismsearch-data:
+  prismsearch-logs:
+  redis-data:

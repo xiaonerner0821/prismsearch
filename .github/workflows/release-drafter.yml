@@ -1,0 +1,51 @@
+# 自动维护发布说明草稿，并按分支/标题/路径给 PR 打标签
+#
+# - push 到 main：更新下一个版本的 Release 草稿
+# - PR 事件：只运行 autolabeler，不碰草稿
+#   使用 pull_request_target，fork 来的 PR 也能拿到可写 token 打标签。
+#   安全前提：本工作流不 checkout、不执行 PR 中的代码，配置取自基础分支。
+#
+# 注意：本工作流的草稿仅用于发布前预览，正式 Release 由 release.yml 从 CHANGELOG.md 生成。
+name: Release Drafter
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-drafter-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update_release_draft:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: release-drafter/release-drafter@6a93d829887aa2e0748befe2e808c66c0ec6e4c7 # v6.4.0
+        with:
+          config-name: release-drafter.yml
+          disable-autolabeler: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  autolabel:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: release-drafter/release-drafter@6a93d829887aa2e0748befe2e808c66c0ec6e4c7 # v6.4.0
+        with:
+          config-name: release-drafter.yml
+          disable-releaser: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

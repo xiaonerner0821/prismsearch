@@ -1,0 +1,46 @@
+# 文档链接检查：README、docs 与贡献指南中的失效链接
+name: Links
+
+on:
+  push:
+    branches: [main]
+    paths: ['**/*.md']
+  pull_request:
+    branches: [main]
+    paths: ['**/*.md']
+  schedule:
+    # 每周检查一次外链是否失效
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # 下面这批 exclude 在仓库公开、首次发布之前本来就是 404：
+      #   Release / compare 页面、npm 包页、GHCR、Codecov 与 Scorecard 徽章、
+      #   依赖 npm 包或仓库数据的 shields.io 徽章。发布稳定后可酌情移除。
+      - name: 检查链接
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --no-progress
+            --max-retries 3
+            --accept 200,206,403,429
+            --exclude-path node_modules
+            --exclude-path workers/ts-worker/node_modules
+            --exclude '^https?://(127\.0\.0\.1|localhost)'
+            --exclude 'ghcr\.io'
+            --exclude 'github\.com/xiaonerner0821/prismsearch/(releases|compare)'
+            --exclude 'npmjs\.com/package/prismsearch'
+            --exclude 'codecov\.io/gh/xiaonerner0821/prismsearch'
+            --exclude 'scorecard\.dev/viewer/\?uri=github\.com/xiaonerner0821/prismsearch'
+            --exclude 'api\.scorecard\.dev/projects/github\.com/xiaonerner0821/prismsearch'
+            --exclude 'img\.shields\.io/(npm|github|docker|codecov|ossf-scorecard)/'
+            './**/*.md'
+          fail: true

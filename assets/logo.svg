@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="prismBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b3a67"/>
+      <stop offset="1" stop-color="#141c33"/>
+    </linearGradient>
+    <clipPath id="prismClip">
+      <polygon points="120,62 66,178 174,178"/>
+    </clipPath>
+  </defs>
+
+  <!-- 背景 -->
+  <rect x="0" y="0" width="240" height="240" rx="52" fill="#0d1424"/>
+
+  <!-- 入射白光 -->
+  <rect x="18" y="116" width="76" height="10" rx="5" fill="url(#beam)" transform="rotate(-8 56 121)"/>
+
+  <!-- 棱镜 -->
+  <polygon points="120,62 66,178 174,178" fill="url(#prismBody)" stroke="#8fa3d9" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- 光谱（从棱镜右腰射出） -->
+  <g clip-path="url(#prismClip)">
+    <rect x="120" y="100" width="60" height="90" fill="#8fa3d9" opacity="0.12"/>
+  </g>
+  <g stroke-linecap="round" stroke-width="9">
+    <line x1="146" y1="108" x2="216" y2="86"  stroke="#ff5f56"/>
+    <line x1="146" y1="118" x2="219" y2="103" stroke="#ffb224"/>
+    <line x1="146" y1="128" x2="221" y2="121" stroke="#f6e05e"/>
+    <line x1="146" y1="138" x2="219" y2="139" stroke="#46c98e"/>
+    <line x1="146" y1="148" x2="216" y2="157" stroke="#4ea1f3"/>
+    <line x1="146" y1="158" x2="211" y2="175" stroke="#9d7bea"/>
+  </g>
+
+  <!-- 高光 -->
+  <polyline points="120,70 76,172" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="4" stroke-linecap="round"/>
+</svg>

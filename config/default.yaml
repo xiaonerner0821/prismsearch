@@ -1,0 +1,235 @@
+# ============================================================
+# PrismSearch 示例配置文件
+#
+# 用法：本文件不会被自动加载。复制为工作目录下的 prismsearch.yaml
+#       或 ~/.prismsearch/config.yaml（也支持 .json / .toml），
+#       也可用 PRISMSEARCH_CONFIG 或命令行参数指定任意路径。
+#       未提供配置文件时，程序使用与下方一致的默认值启动。
+#
+# 所有配置项都可以通过环境变量覆盖：PRISMSEARCH_ 前缀，嵌套层级用下划线表示，
+# 例如 PRISMSEARCH_SERVER_PORT=8080、PRISMSEARCH_SECURITY_AUTH_ENABLED=true。
+# 驼峰字段可用下划线表示（dnsRebindingProtection → DNS_REBINDING_PROTECTION）。
+#
+# 密钥类字段强烈建议用环境变量注入，不要写进本文件：
+#   GOOGLE_API_KEY / GOOGLE_CSE_ID / BRAVE_API_KEY
+#   PRISMSEARCH_AUTH_TOKENS（主服务访问令牌，逗号分隔；非空时自动开启 security.auth）
+#   PRISMSEARCH_WORKER_TOKEN（Worker 共享令牌）
+# ============================================================
+
+# ---------------- 服务器 ----------------
+server:
+  # 传输协议：stdio（MCP 客户端直连）或 http（Streamable HTTP）
+  transport: stdio
+  # HTTP 监听端口（transport 为 http 时生效；0 表示随机端口）
+  port: 3000
+  # 监听地址。127.0.0.1 仅本机访问；改成 0.0.0.0 时必须开启 security.auth，
+  # 否则启动会直接报错退出（这是有意的保护）
+  host: "127.0.0.1"
+  # 允许的 Host 头（防 DNS 重绑定）。留空时：监听回环地址则只接受 localhost 系列，
+  # 监听其他地址则不校验 Host（此时靠鉴权兜底）
+  allowedHosts: []
+  # 允许的 Origin（浏览器跨域来源）。留空时只接受本机来源或无 Origin 的请求
+  allowedOrigins: []
+  # 请求体上限（字节）
+  maxBodyBytes: 1048576
+  # 是否开放 POST /admin/config/reload（热重载；始终要求鉴权）
+  enableAdminApi: false
+  # 允许在非回环地址上无鉴权运行。除非明确知晓风险，不要打开
+  allowUnauthenticatedRemote: false
+
+# ---------------- 搜索引擎 ----------------
+# 这里只需写想覆盖的字段：与同名内置条目逐字段合并，未写的项沿用内置默认值。
+# 因此 `- name: bing` + `enabled: false` 就够了，不必重复 baseUrl / timeout。
+engines:
+  - name: google
+    enabled: true
+    # 配置 Custom Search API（免费额度每 Key 每天 100 次）后自动优先走 API，
+    # 失败再降级到浏览器渲染 / 纯 HTTP 抓取。推荐用环境变量注入：
+    #   GOOGLE_API_KEY、GOOGLE_CSE_ID
+    # apiKey: ""
+    # searchEngineId: ""
+    # 同源备用地址：主站失败后依次尝试（内置已带 .hk / .co.jp / .com.sg）
+    # alternateUrls: []
+
+  - name: bing
+    enabled: true
+
+  # Brave Search API：免费每月 2000 次、无需绑卡
+  # 注册与 Key 获取：https://brave.com/search/api/
+  # 推荐用环境变量 BRAVE_API_KEY 注入；支持逗号分隔多 Key 自动轮换
+  - name: brave
+    enabled: true
+    # apiKey: "BSA..."
+
+  - name: baidu
+    enabled: true
+    # 引擎亲和：请求带 region / language 时，选择器优先挑擅长对应区域 / 语言的引擎。
+    # 留空沿用内置默认（如百度为 cn/hk/tw 与 zh 系语言），写了则整体替换内置值。
+    # regions: [cn, hk, tw]
+    # languages: [zh, zh-CN]
+
+  # 以下引擎已实现，默认关闭。改成 enabled: true 即可启用
+  - name: duckduckgo
+    enabled: false
+  - name: yandex
+    enabled: false
+  - name: so
+    enabled: false
+  - name: sogou
+    enabled: false
+
+# ---------------- 微信公众号文章搜索 ----------------
+wechat:
+  enabled: true
+  baseUrl: "https://weixin.sogou.com/weixin"
+  timeout: 15000
+  # 单次搜索的总截止时间（含重试与真实链接解析）
+  overallTimeoutMs: 45000
+  # 解析文章真实链接的并发数
+  concurrency: 3
+  # 搜索页请求失败的重试次数
+  retries: 2
+  rateLimit:
+    maxRequests: 10
+    windowMs: 60000
+
+# ---------------- 搜索 ----------------
+search:
+  # 单次 web_search / image_search 整条降级链的总时长上限（毫秒）；
+  # 超时后不再尝试后续引擎，避免多个引擎依次超时导致客户端长时间挂起
+  deadlineMs: 45000
+  # 去广告第二层：按落地链接（广告跳转域名、付费投放追踪参数）再过滤一遍；
+  # 引擎解析层按页面广告标记的过滤始终生效，不受此开关影响
+  adFilter: true
+
+# ---------------- 缓存 ----------------
+cache:
+  # sqlite（文件持久化）/ redis（多实例共享）/ memory（进程内，重启丢失）
+  backend: sqlite
+  # 过期时间（秒）；0 表示关闭缓存
+  ttl: 3600
+  # 最大条目数，超出后 LRU 淘汰（redis 后端忽略此项）
+  maxSize: 10000
+  # 过期清理间隔（秒）
+  cleanupInterval: 600
+  sqlite:
+    # 留空则使用 ~/.prismsearch/cache.db；支持 ~ 开头的路径
+    # path: "~/.prismsearch/cache.db"
+  redis:
+    url: "redis://127.0.0.1:6379"
+    keyPrefix: "prismsearch:"
+    # password: ""
+
+# ---------------- HTTP 抓取器 ----------------
+fetcher:
+  # fetch_page 默认抓取方式：http（轻量）或 browser（JS 渲染）
+  defaultMethod: http
+  # 固定 User-Agent；留空则从内置 UA 池按查询稳定挑选
+  # userAgent: "Mozilla/5.0 (...) Chrome/131.0.0.0 Safari/537.36"
+  timeout: 30000
+  # 单个响应体上限（字节）
+  maxBytes: 5242880
+
+  # 代理池（可选）
+  proxy:
+    enabled: false
+    # 形如 http://user:pass@host:port
+    pool: []
+    # 连续失败后的冷却时长（毫秒）
+    cooldownMs: 300000
+
+  # 浏览器抓取器（Playwright）。需要：
+  #   npm install playwright && npx playwright install chromium
+  # Google 自 2025 年起对搜索结果页强制 JS 渲染，启用本项才能用浏览器方式抓 Google。
+  # 也可以改为委派给 ts-worker（见下方 workers 段）。
+  browser:
+    enabled: false
+    browserType: chromium
+    maxPages: 3
+    pageTimeout: 30000
+    headless: true
+    # load / domcontentloaded / networkidle
+    waitUntil: domcontentloaded
+    locale: "zh-CN"
+    # userAgent 留空时取 fetcher.userAgent 或内置 UA 池
+
+# ---------------- 进程外抓取 Worker（可选） ----------------
+# 两种 Worker 使用同一套 HTTP + JSON 协议，详见 docs/worker-protocol.md：
+#   workers/ts-worker  — Playwright 渲染，能力 [http, browser]，默认端口 8787
+#   workers/py-worker  — curl_cffi 指纹伪装 + trafilatura，能力 [http]，默认端口 8788
+workers:
+  enabled: false
+  # round-robin（平滑加权轮询）或 least-busy（优先选择空闲的）
+  strategy: least-busy
+  # 单次委派任务超时（毫秒）
+  timeoutMs: 45000
+  # 健康检查间隔（毫秒）
+  healthCheckIntervalMs: 30000
+  # browser：仅 method=browser 的抓取交给 Worker（本地可不装 Playwright）
+  # always：所有抓取都交给 Worker
+  useFor: browser
+  # 所有 Worker 都不可用时，降级为本地抓取
+  fallbackToLocal: true
+  # 远端 Worker 必须列出精确 origin；HTTP 仅建议本地开发显式 allowInsecureHttp
+  allowedOrigins: []
+  endpoints:
+    # token 留空时回落到环境变量 PRISMSEARCH_WORKER_TOKEN
+    # - name: ts-1
+    #   url: "http://ts-worker:8787"
+    #   weight: 100
+    #   maxConcurrency: 4
+    # - name: py-1
+    #   url: "http://py-worker:8788"
+    #   weight: 50
+    #   maxConcurrency: 8
+
+# ---------------- 安全 ----------------
+security:
+  # SSRF 防护
+  ssrf:
+    enabled: true
+    allowedProtocols: ["http:", "https:"]
+    # 额外禁止的网段（CIDR）。内置已覆盖全部私有 / 保留地址与云元数据地址，
+    # 这里只需补充特殊场景
+    blockedIpRanges: []
+    # 白名单：命中则不检查（谨慎使用）
+    whitelist: []
+    # 黑名单：始终阻止
+    blacklist: []
+    # 建连时校验目标 IP，防 DNS 重绑定与 TOCTOU
+    dnsRebindingProtection: true
+
+  # 速率限制
+  rateLimit:
+    enabled: true
+    maxRequests: 60
+    windowMs: 60000
+    # client（按凭证指纹或客户端地址分桶）或 global（全局一个桶）
+    keyBy: client
+
+  # 鉴权（HTTP 模式下监听非回环地址时必须开启）
+  # 也可以用环境变量 PRISMSEARCH_AUTH_TOKENS（逗号分隔）注入令牌
+  auth:
+    enabled: false
+    # bearer：Authorization: Bearer <token>；api-key：X-API-Key 头
+    type: bearer
+    tokens: []
+
+  # 内容过滤：对抓取结果做恶意域名 / 敏感词 / 可疑模式检查
+  contentFilter:
+    # off：不检查；warn：结果附带风险提示；block：命中即拒绝返回内容
+    mode: warn
+    maliciousDomains: []
+    sensitiveKeywords: []
+    detectSuspiciousPatterns: true
+
+# ---------------- 日志 ----------------
+log:
+  # error / warn / info / debug
+  level: info
+  # json（结构化，便于采集）或 text（人类可读）
+  format: json
+  # 日志文件；不设置则输出到 stderr（stdout 留给 stdio 协议）
+  # file: "./logs/prismsearch.log"
+  # 在 info 级别日志中隐藏搜索词与 URL 查询串
+  redact: true

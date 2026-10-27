@@ -1,0 +1,45 @@
+# 自动标记长期无响应的 issue 与 PR，避免积压
+name: Stale
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+        with:
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+
+          stale-issue-message: |
+            这个 issue 已经 60 天没有活动了。如果问题仍然存在，请补充复现信息（版本、配置、完整报错）；
+            否则它将在 14 天后自动关闭。关闭后随时可以重新打开。
+          close-issue-message: |
+            由于长时间没有后续信息，这里先关闭了。如果问题复现，欢迎重新打开并附上最新情况。
+          stale-pr-message: |
+            这个 PR 已经 30 天没有更新。如果还在推进，请同步一下进展或 rebase 到最新 main；
+            否则将在 14 天后关闭，之后仍可随时重新打开。
+          close-pr-message: |
+            由于长时间没有更新，这里先关闭了这个 PR。需要继续时重新打开即可。
+
+          # 这些标签下的内容不会被标记为 stale
+          exempt-issue-labels: 'pinned,security,help wanted,good first issue,keep-open'
+          exempt-pr-labels: 'pinned,security,keep-open'
+          # 有指派人时视为仍在处理
+          exempt-all-assignees: true
+          # 只处理没有 milestone 的条目
+          exempt-all-milestones: true
+
+          stale-issue-label: 'stale'
+          stale-pr-label: 'stale'
+          operations-per-run: 60

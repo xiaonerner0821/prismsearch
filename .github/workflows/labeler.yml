@@ -1,0 +1,27 @@
+# 按改动路径自动打标签，方便筛选与路由
+#
+# 使用 pull_request_target：fork 来的 PR 在 pull_request 事件下只拿到只读 token，
+# 打标签会 403。pull_request_target 在基础分支上下文中运行、拿到可写 token。
+# 安全前提：本工作流不 checkout、不执行 PR 中的任何代码，actions/labeler 只通过 API
+# 读取改动的文件列表，规则取自基础分支的 .github/labeler.yml。新增步骤时不要破坏这一点。
+name: Labeler
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5.0.0
+        with:
+          # 改动不再命中某条规则时，移除之前由规则打上的对应标签
+          sync-labels: true

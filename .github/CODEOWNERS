@@ -1,0 +1,12 @@
+# Code owners: matching PRs automatically request review from these owners.
+# Later rules take precedence over earlier ones.
+
+*                           @xiaonerner0821
+
+# Security-sensitive areas: changes here must be reviewed by the maintainer
+/src/security/              @xiaonerner0821
+/src/server/                @xiaonerner0821
+/workers/                   @xiaonerner0821
+/docs/worker-protocol.md    @xiaonerner0821
+/.github/workflows/         @xiaonerner0821
+/SECURITY.md                @xiaonerner0821

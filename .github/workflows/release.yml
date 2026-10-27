@@ -1,0 +1,409 @@
+# PrismSearch 发布流水线
+#
+# 触发方式：推送形如 vX.Y.Z 的 tag（必须与 package.json 的 version 一致）
+#   npm version X.Y.Z --no-git-tag-version   # 改版本号并提交
+#   git tag vX.Y.Z && git push origin vX.Y.Z
+# 完整步骤见 docs/RELEASING.md
+#
+# 发布内容：
+#   1. npm（provenance 来源认证）
+#      首发：包还不存在，无法预先配置 Trusted Publisher，使用仓库 Secret NPM_TOKEN
+#            （granular token，勾选 bypass 2FA）
+#      之后：npmjs.com → 包设置 → Trusted Publisher 绑定本仓库与 release.yml，
+#            删除 NPM_TOKEN，靠 OIDC 发布
+#   2. GHCR 多架构镜像（amd64 + arm64）：主服务、TS Worker、Python Worker
+#   3. GitHub Release（发布说明取自 CHANGELOG.md 对应版本段落）
+#
+# 依赖关系：完整测试、依赖审计、镜像启动验证通过后才发布最终已 smoke 的 npm tarball；
+#   npm 成功后再推镜像正式标签；GitHub Release 等待所有渠道成功。
+#   registry 间无法原子提交，失败须重跑并核对已有版本，不能覆盖不可变 npm 版本。
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+# 默认最小权限，各 job 按需提升
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # 发布前校验：tag 与版本号一致、完整测试通过
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 校验 tag 来自 main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+
+      - name: 校验 tag 与 package.json 版本一致
+        id: version
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} 与 package.json 版本 ${PKG_VERSION} 不一致"
+            exit 1
+          fi
+          # MCP Registry 元数据与各 Worker 的版本号也必须同步（脚本同时校验 mcpName 与 registry 名称）
+          node scripts/check-versions.mjs
+          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          # 带预发布后缀（如 1.0.0-rc.1）时标记为预发布，且不打 latest
+          if [[ "$PKG_VERSION" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 标题格式：「## [0.3.0] - 2026-10-27」或「## 0.3.0 - ...」。
+      # 版本号里的点要转义，且版本号后必须是 ]、空格或行尾，避免 0.3.0 误匹配 0.3.0-rc.1 / 10.3.0x
+      - name: 校验 CHANGELOG 包含该版本
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          VERSION_RE="${VERSION//./\\.}"
+          if ! grep -qE "^## \[?${VERSION_RE}(\]| |$)" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md 缺少 ${VERSION} 的条目（期望标题形如「## [${VERSION}] - YYYY-MM-DD」）"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - name: 本地 schema 校验 Registry 元数据
+        run: |
+          python -m pip install 'jsonschema>=4,<5'
+          python -m jsonschema -i server.json scripts/server.schema.json
+
+      - name: TS Worker 测试与构建
+        working-directory: workers/ts-worker
+        run: |
+          npm ci --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Python Worker 锁定依赖、检查与测试
+        working-directory: workers/py-worker
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install --no-deps -e .
+          python -m pip install ruff pytest pytest-asyncio
+          ruff check .
+          pytest -q
+
+      - name: TS Worker 生产依赖审计 gate
+        working-directory: workers/ts-worker
+        run: npm audit --omit=dev --audit-level=high
+      - name: Python Worker 生产锁文件审计 gate
+        working-directory: workers/py-worker
+        run: |
+          python -m pip install pip-audit
+          python -m pip_audit --require-hashes -r requirements.lock
+
+      - name: 依赖审计 gate
+        run: npm audit --omit=dev --audit-level=high
+
+  # 发布前生成 SBOM，作为构建产物保留，便于审计与回溯
+  sbom:
+    runs-on: ubuntu-latest
+    needs: verify
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: workers/ts-worker/package-lock.json
+      - name: 生成 npm SBOM
+        run: |
+          npm ci --ignore-scripts
+          npm sbom --omit=dev --sbom-format=cyclonedx > npm-sbom.cdx.json
+      - name: 生成 TS Worker SBOM
+        working-directory: workers/ts-worker
+        run: npm ci --ignore-scripts && npm sbom --omit=dev --sbom-format=cyclonedx > ../../ts-worker-sbom.cdx.json
+      - name: 生成第三方运行依赖归属清单
+        run: node scripts/generate-third-party-inventory.mjs .
+      - name: 生成 Python 依赖清单
+        working-directory: workers/py-worker
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip inspect --local > ../../py-worker-pip-inspect.json
+      - name: 上传 SBOM 与依赖清单
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-sbom-${{ needs.verify.outputs.version }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            npm-sbom.cdx.json
+            ts-worker-sbom.cdx.json
+            py-worker-pip-inspect.json
+            third-party-npm.json
+            third-party-npm.md
+
+  # 发布前构建并运行验证镜像，不依赖 registry 或 secrets
+  docker-verify:
+    runs-on: ubuntu-latest
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: prismsearch
+            context: .
+            file: docker/Dockerfile
+            port: 3000
+            health: http://127.0.0.1:3000/health
+            env: PRISMSEARCH_AUTH_TOKENS=release-smoke-token
+          - name: prismsearch-ts-worker
+            context: workers/ts-worker
+            file: workers/ts-worker/Dockerfile
+            port: 8787
+            health: http://127.0.0.1:8787/health
+            env: PRISMSEARCH_WORKER_TOKEN=release-smoke-token
+          - name: prismsearch-py-worker
+            context: workers/py-worker
+            file: workers/py-worker/Dockerfile
+            port: 8788
+            health: http://127.0.0.1:8788/health
+            env: PRISMSEARCH_WORKER_TOKEN=release-smoke-token
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: 构建本地验证镜像
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          tags: ${{ matrix.name }}:release-smoke
+          load: true
+          push: false
+          cache-from: type=gha,scope=release-${{ matrix.name }}
+      - name: 启动并检查健康端点
+        shell: bash
+        env:
+          IMAGE: ${{ matrix.name }}:release-smoke
+          PORT: ${{ matrix.port }}
+          HEALTH: ${{ matrix.health }}
+          CONTAINER_ENV: ${{ matrix.env }}
+        run: |
+          set -euo pipefail
+          docker run -d --name release-smoke -p "${PORT}:${PORT}" -e "${CONTAINER_ENV}" "$IMAGE"
+          trap 'docker logs release-smoke || true; docker rm -f release-smoke || true' EXIT
+          for i in {1..30}; do
+            if curl --fail --silent "$HEALTH" >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          echo "健康检查超时"
+          exit 1
+
+  # 发布到 npm
+  publish-npm:
+    runs-on: ubuntu-latest
+    needs: [verify, docker-verify, sbom]
+    environment: release
+    permissions:
+      contents: read
+      id-token: write   # OIDC：Trusted Publishing 与 provenance 都需要
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # 故意不传 registry-url：传了之后 setup-node 会生成引用 NODE_AUTH_TOKEN 的 .npmrc，
+      # 并在变量缺失时填入占位 token，会干扰 Trusted Publishing 的 OIDC 流程。
+      # 是否写入 token 由下面的发布步骤按 NPM_TOKEN 是否存在决定。
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      # Trusted Publishing 需要 npm >= 11.5.1；锁定主版本，避免未来 npm 12 的破坏性变更
+      - name: 升级 npm
+        run: npm install -g npm@^11.5.1
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: selfcheck 与最终 tarball smoke
+        run: |
+          node scripts/selfcheck.mjs
+          mkdir -p release-artifacts
+          npm pack --ignore-scripts --pack-destination release-artifacts
+          node scripts/release-tarball-smoke.mjs "release-artifacts/$(node -p "require('./package.json').name + '-' + require('./package.json').version + '.tgz'")"
+
+      - name: 发布到 npm
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          TAG_ARGS=()
+          if [ "$PRERELEASE" = "true" ]; then
+            TAG_ARGS=(--tag next)
+          fi
+
+          if [ -n "$NPM_TOKEN" ]; then
+            # 首发路径：用 granular token。.npmrc 只引用环境变量，不把 token 明文写盘
+            echo "使用 NPM_TOKEN 发布"
+            NPMRC="$RUNNER_TEMP/.npmrc"
+            echo '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > "$NPMRC"
+            export NPM_CONFIG_USERCONFIG="$NPMRC"
+            export NODE_AUTH_TOKEN="$NPM_TOKEN"
+          else
+            # Trusted Publishing 路径：不设置任何 token，npm 通过 OIDC 换取短期凭据
+            echo "未配置 NPM_TOKEN，使用 Trusted Publishing（OIDC）发布"
+            unset NODE_AUTH_TOKEN || true
+          fi
+
+          npm publish release-artifacts/*.tgz --ignore-scripts --provenance --access public "${TAG_ARGS[@]}"
+
+  # 多架构容器镜像
+  publish-images:
+    runs-on: ubuntu-latest
+    needs: [verify, publish-npm]
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write       # 镜像来源证明
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: prismsearch
+            context: .
+            file: docker/Dockerfile
+          - image: prismsearch-ts-worker
+            context: workers/ts-worker
+            file: workers/ts-worker/Dockerfile
+          - image: prismsearch-py-worker
+            context: workers/py-worker
+            file: workers/py-worker/Dockerfile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: 登录 GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 生成镜像标签与元数据
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          flavor: |
+            latest=${{ needs.verify.outputs.prerelease == 'false' }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ needs.verify.outputs.prerelease == 'false' }}
+
+      - name: 构建并推送
+        id: push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      - name: 生成来源证明
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  # GitHub Release：发布说明取 CHANGELOG 对应段落
+  # 所有分发渠道成功后才创建 GitHub Release
+  github-release:
+    runs-on: ubuntu-latest
+    needs: [verify, publish-npm, publish-images, sbom]
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # 从「## [X.Y.Z] - 日期」的下一行取到下一个「## 」标题为止；
+      # 跳过文件末尾的 Markdown 链接引用定义（形如「[0.3.0]: https://...」），
+      # 否则当该版本是最后一段时会把它们混进发布说明
+      - name: 提取本版本的变更说明
+        shell: bash
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          # 通过 ENVIRON 传正则：awk -v 会再解释一次反斜杠，导致 \. 退化成 .
+          export VERSION_RE="${VERSION//./\\.}"
+          awk '
+            BEGIN { head = "^## \\[?" ENVIRON["VERSION_RE"] "(\\]| |$)" }
+            $0 ~ head { found = 1; next }
+            found && /^## / { exit }
+            found && /^\[[^]]+\]: / { next }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+
+          if ! grep -q '[^[:space:]]' RELEASE_NOTES.md; then
+            echo "::error::未能从 CHANGELOG.md 提取到 ${VERSION} 的变更说明"
+            exit 1
+          fi
+
+          {
+            echo ""
+            echo "---"
+            echo "- npm: \`npx prismsearch@${VERSION}\`"
+            echo "- 镜像: \`ghcr.io/${OWNER}/prismsearch:${VERSION}\`（多架构构建完成后可用）"
+          } >> RELEASE_NOTES.md
+
+      - name: 下载依赖审计产物
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-sbom-${{ needs.verify.outputs.version }}
+          path: release-audit
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          body_path: RELEASE_NOTES.md
+          files: release-audit/*
+          fail_on_unmatched_files: true
+          prerelease: ${{ needs.verify.outputs.prerelease == 'true' }}

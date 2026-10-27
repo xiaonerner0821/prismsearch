@@ -1,0 +1,135 @@
+# 联网冒烟测试
+#
+# 搜索引擎的页面结构随时会变，抓取型引擎的失效只能靠真实请求发现。
+# 但 GitHub 托管 runner 的出口 IP 属于数据中心网段，Google / Bing / 百度等抓取型引擎
+# 基本必然触发风控，定时跑抓取型引擎只会天天误报。因此：
+#   - 定时任务（每周一次）只测 API 型引擎：Brave（需 BRAVE_API_KEY）、
+#     Google Custom Search（需 GOOGLE_API_KEY + GOOGLE_CSE_ID），对应 secret 不存在就不测；
+#   - 抓取型引擎只在手动触发（workflow_dispatch）并勾选 include_scrapers 时才测；
+#   - 失败时只维护一个 issue：没有打开的同名 issue 时新建（即「成功 → 失败」的状态转换），
+#     已有时只更新 issue 正文里的最近失败记录，不追加评论，避免刷屏。
+#
+# 引擎选择依赖 tests/integration/live-search.test.ts 的 LIVE_TEST_ENGINES：
+# 留空时测试会回落到默认的 duckduckgo,brave,bing（含抓取型），所以这里永远显式传入列表，
+# 列表为空时直接跳过测试步骤。
+name: Live Tests
+
+on:
+  schedule:
+    # 每周一 02:40 UTC（北京时间 10:40）
+    - cron: '40 2 * * 1'
+  workflow_dispatch:
+    inputs:
+      include_scrapers:
+        description: 同时测试抓取型引擎（duckduckgo、bing、baidu、sogou、so、yandex，以及无 API Key 时的 google）
+        type: boolean
+        required: false
+        default: false
+      engines:
+        description: 只测指定引擎（逗号分隔，或 all；填写后忽略上面的勾选）
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-tests
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: 选择要测试的引擎
+        id: select
+        shell: bash
+        env:
+          INPUT_ENGINES: ${{ inputs.engines }}
+          INCLUDE_SCRAPERS: ${{ inputs.include_scrapers }}
+          HAS_BRAVE: ${{ secrets.BRAVE_API_KEY != '' }}
+          HAS_GOOGLE_API: ${{ secrets.GOOGLE_API_KEY != '' && secrets.GOOGLE_CSE_ID != '' }}
+        run: |
+          set -euo pipefail
+          engines=()
+          if [ -n "${INPUT_ENGINES// /}" ]; then
+            ENGINES="${INPUT_ENGINES// /}"
+          else
+            [ "$HAS_BRAVE" = "true" ] && engines+=(brave)
+            [ "$HAS_GOOGLE_API" = "true" ] && engines+=(google)
+            if [ "$INCLUDE_SCRAPERS" = "true" ]; then
+              engines+=(duckduckgo bing baidu sogou so yandex)
+              # 没有 Google API 凭据时 google 只能走抓取策略，归入抓取型
+              [ "$HAS_GOOGLE_API" = "true" ] || engines+=(google)
+            fi
+            ENGINES="$(IFS=,; echo "${engines[*]:-}")"
+          fi
+          echo "engines=$ENGINES" >> "$GITHUB_OUTPUT"
+          if [ -z "$ENGINES" ]; then
+            echo "::notice::没有可测试的引擎（未配置 BRAVE_API_KEY / GOOGLE_API_KEY+GOOGLE_CSE_ID，且未勾选抓取型引擎），跳过"
+          else
+            echo "本次测试引擎：$ENGINES"
+          fi
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.select.outputs.engines != ''
+        with:
+          node-version: 22
+          cache: npm
+
+      - if: steps.select.outputs.engines != ''
+        run: npm ci
+
+      - name: 联网冒烟测试
+        if: steps.select.outputs.engines != ''
+        run: npm run test:live
+        env:
+          RUN_LIVE_TESTS: '1'
+          LIVE_TEST_ENGINES: ${{ steps.select.outputs.engines }}
+          BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+
+      # 只维护一个 issue：不存在则新建，已存在则覆盖正文中的「最近一次失败」，不发评论
+      - name: 失败时创建或更新 issue
+        if: failure()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          ENGINES: ${{ steps.select.outputs.engines }}
+        with:
+          script: |
+            const title = '联网冒烟测试失败：搜索引擎可能已失效';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const now = new Date().toISOString();
+            const body = [
+              `**最近一次失败**：${now}（${context.eventName}）`,
+              `**运行记录**：${runUrl}`,
+              `**测试引擎**：${process.env.ENGINES || '（未进入测试步骤）'}`,
+              '',
+              '最常见的原因：',
+              '1. API 型引擎：Key 失效、额度用尽或接口变更；',
+              '2. 抓取型引擎：目标站页面结构变了需要更新选择器，或加强了风控（GitHub runner 的数据中心 IP 很容易被拦，先在本机复现再判断）。',
+              '',
+              '本 issue 存在期间，后续失败只会更新上面的记录，不会追加评论。修复后请关闭本 issue。',
+            ].join('\n');
+
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo,
+              state: 'open',
+              labels: 'live-test',
+              per_page: 100,
+            });
+            const found = existing.find(i => i.title === title && !i.pull_request);
+            if (found) {
+              await github.rest.issues.update({ ...context.repo, issue_number: found.number, body });
+              core.info(`已更新 issue #${found.number}`);
+            } else {
+              const { data } = await github.rest.issues.create({ ...context.repo, title, body, labels: ['live-test'] });
+              core.info(`已创建 issue #${data.number}`);
+            }

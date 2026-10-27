@@ -1,0 +1,32 @@
+PrismSearch
+Copyright 2026 PrismSearch Contributors
+
+This product includes software developed by the PrismSearch contributors
+(https://github.com/xiaonerner0821/prismsearch).
+
+This software is licensed under the Apache License, Version 2.0.
+A copy of the license is available in the LICENSE file and at
+https://www.apache.org/licenses/LICENSE-2.0
+
+---
+
+Third-party attributions
+
+WeChat article search (src/engines/wechat/wechat-article.ts)
+
+  The implementation approach — establishing a session via the Sogou homepage
+  to obtain the anti-crawler cookie, then reassembling the signed WeChat
+  article URLs from the redirect page's script fragments — was informed by
+  Miku_Spider (https://github.com/GobinFan/Miku_Spider), which is licensed
+  under the MIT License.
+
+  No source code and no cookie values from that project are included here;
+  the module is an independent TypeScript implementation, and all session
+  cookies are obtained dynamically at runtime. Attribution is provided for
+  the design approach with thanks to its authors.
+
+---
+
+Bundled runtime dependencies retain their own licenses; run
+`npx license-checker --summary` (or inspect node_modules/*/LICENSE) for the
+full list.

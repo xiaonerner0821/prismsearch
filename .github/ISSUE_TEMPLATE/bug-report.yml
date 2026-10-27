@@ -1,0 +1,147 @@
+name: Bug 报告 / Bug Report
+description: 报告一个问题 / Report a bug
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！**安全问题请不要在这里提交**，按 [SECURITY.md](https://github.com/xiaonerner0821/prismsearch/blob/main/SECURITY.md) 私下报告。
+        Thanks for the report! **Do not file security issues here** — see SECURITY.md.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述 / Bug Description
+      description: 简要描述遇到的问题
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 / Steps to Reproduce
+      placeholder: |
+        1. 配置 ...
+        2. 调用工具 web_search，参数 ...
+        3. 看到 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为 / Expected Behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为 / Actual Behavior
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及模块 / Area
+      multiple: true
+      options:
+        - 搜索引擎 / Search engine
+        - 图片搜索 / Image search
+        - 网页抓取 / fetch_page
+        - 微信搜索 / wechat_search
+        - 抓取 Worker / Fetch worker
+        - HTTP 传输与鉴权 / HTTP transport & auth
+        - 配置 / Configuration
+        - 缓存 / Cache
+        - Docker 部署 / Docker
+        - 其他 / Other
+
+  # 选项与 src/engines 下的引擎目录一一对应，新增引擎时同步更新
+  - type: dropdown
+    id: engine
+    attributes:
+      label: 相关引擎 / Engine (if any)
+      multiple: true
+      options:
+        - google
+        - bing
+        - brave
+        - duckduckgo
+        - baidu
+        - sogou
+        - so (360)
+        - yandex
+        - wechat
+        - 不涉及特定引擎 / Not engine-specific
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: 安装方式 / Installation
+      options:
+        - npx / npm 全局安装 / npx or npm -g
+        - Docker 镜像（GHCR）/ Docker image
+        - 源码构建 / From source
+    validations:
+      required: true
+
+  - type: dropdown
+    id: transport
+    attributes:
+      label: 传输模式 / Transport
+      options:
+        - stdio
+        - http
+        - 不确定 / Not sure
+
+  - type: input
+    id: version
+    attributes:
+      label: PrismSearch 版本 / Version
+      description: "运行 `prismsearch --version`（或 `npx prismsearch --version`）查看；源码构建请附 commit"
+      placeholder: 0.3.1
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node.js 版本 / Node.js version
+      description: "运行 `node --version` 查看，要求 >= 22.19.0；使用 Docker 镜像可留空"
+      placeholder: v22.19.0
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: 操作系统 / OS
+      placeholder: Windows 11 / macOS 15 / Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: 相关配置 / Relevant config
+      description: 请删除 API Key、令牌等敏感信息后再粘贴
+      render: yaml
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / Logs
+      description: "建议设置 log.level 为 debug 后复现；粘贴前确认不含密钥"
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认 / Checklist
+      options:
+        - label: 我已搜索过现有 issue，没有重复 / I searched existing issues
+          required: true
+        - label: 我已移除配置与日志中的密钥 / I removed secrets from config and logs
+          required: true

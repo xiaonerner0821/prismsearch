@@ -1,0 +1,61 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.xiaonerner0821/prismsearch",
+  "title": "PrismSearch",
+  "description": "Multi-engine web, image and WeChat search with page/PDF fetching over local MCP stdio.",
+  "repository": {
+    "url": "https://github.com/xiaonerner0821/prismsearch",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/xiaonerner0821/prismsearch#readme",
+  "version": "0.3.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "prismsearch",
+      "version": "0.3.1",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "BRAVE_API_KEY",
+          "description": "Brave Search API key (optional, comma-separated for rotation)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "GOOGLE_API_KEY",
+          "description": "Google Custom Search API key (optional, comma-separated for rotation)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "GOOGLE_CSE_ID",
+          "description": "Google Programmable Search Engine ID (cx), used with GOOGLE_API_KEY",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "PRISMSEARCH_HOME",
+          "description": "Local data directory for SQLite cache and default config lookup (optional)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
+        },
+        {
+          "name": "PRISMSEARCH_CONFIG",
+          "description": "Path to a YAML/JSON/TOML config file (optional)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
+        }
+      ]
+    }
+  ]
+}

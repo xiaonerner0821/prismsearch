@@ -1,0 +1,50 @@
+# actions/labeler v5 路径规则：PR 改动命中哪些路径就打哪些标签
+# 标签名需与 .github/release-drafter.yml 一致，并由 scripts/dev/setup-github.* 预先创建
+
+engine:
+  - changed-files:
+      - any-glob-to-any-file: 'src/engines/**'
+
+fetcher:
+  - changed-files:
+      - any-glob-to-any-file: ['src/fetcher/**', 'src/tools/fetch-page.ts']
+
+security:
+  - changed-files:
+      - any-glob-to-any-file: ['src/security/**', 'SECURITY.md']
+
+server:
+  - changed-files:
+      - any-glob-to-any-file: ['src/server/**', 'src/index.ts']
+
+config:
+  - changed-files:
+      - any-glob-to-any-file: ['src/config/**', 'config/**']
+
+cache:
+  - changed-files:
+      - any-glob-to-any-file: 'src/cache/**'
+
+worker:
+  - changed-files:
+      - any-glob-to-any-file: ['workers/**', 'src/workers/**', 'docs/worker-protocol.md']
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ['tests/**', 'workers/*/tests/**', 'workers/*/src/**/*.test.ts']
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.md', 'docs/**']
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
+
+docker:
+  - changed-files:
+      - any-glob-to-any-file: ['docker/**', '**/Dockerfile', '.dockerignore']
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: ['package.json', 'package-lock.json', 'workers/*/package*.json', 'workers/py-worker/pyproject.toml']

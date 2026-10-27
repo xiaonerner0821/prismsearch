@@ -1,0 +1,86 @@
+# release-drafter 配置：自动把已合并的 PR 归类成下一个版本的发布说明草稿
+# 说明：本项目的正式发布说明取自 CHANGELOG.md（见 .github/workflows/release.yml），
+# 这里的草稿用于发布前预览与整理，两者分类口径保持一致。
+#
+# 标签名必须与 .github/labeler.yml、.github/dependabot.yml、ISSUE_TEMPLATE 以及
+# scripts/dev/setup-github.* 预建的标签一致。未命中任何分类的 PR 会自动归入
+# 下方 category 列表之后的「未分类」部分（release-drafter 不支持 '*' 通配）。
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+categories:
+  - title: '💥 破坏性变更'
+    labels: ['breaking']
+  - title: '🚀 新增功能'
+    labels: ['feature', 'enhancement']
+  - title: '🐛 修复'
+    labels: ['bug', 'fix']
+  - title: '🔒 安全'
+    labels: ['security']
+  - title: '⚡ 性能与稳定性'
+    labels: ['performance']
+  - title: '📝 文档'
+    labels: ['documentation']
+  - title: '🔧 工程与 CI'
+    labels: ['ci', 'dependencies', 'docker']
+  - title: '🧪 测试'
+    labels: ['tests']
+
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+
+exclude-labels:
+  - 'skip-changelog'
+
+version-resolver:
+  major:
+    labels: ['breaking']
+  minor:
+    labels: ['feature', 'enhancement']
+  patch:
+    labels: ['bug', 'fix', 'security', 'performance', 'documentation', 'ci', 'tests', 'dependencies', 'docker']
+  default: patch
+
+# 标题规则按 Conventional Commits：type(scope)!: 描述
+autolabeler:
+  - label: 'documentation'
+    files: ['**/*.md', 'docs/**']
+    title: ['/^docs(\(.+\))?!?:/i']
+  - label: 'ci'
+    files: ['.github/**']
+    title: ['/^ci(\(.+\))?!?:/i']
+  - label: 'docker'
+    files: ['docker/**', '**/Dockerfile', '.dockerignore']
+  - label: 'tests'
+    files: ['tests/**', 'workers/*/tests/**']
+    title: ['/^test(\(.+\))?!?:/i']
+  - label: 'dependencies'
+    files: ['package.json', 'package-lock.json', 'workers/*/package*.json', 'workers/py-worker/pyproject.toml']
+    title: ['/^(chore|build)\(deps(-dev)?\)!?:/i']
+  - label: 'security'
+    files: ['src/security/**', 'SECURITY.md']
+  - label: 'feature'
+    branch: ['/^feat(ure)?\/.+/']
+    title: ['/^feat(\(.+\))?!?:/i']
+  - label: 'fix'
+    branch: ['/^(bug)?fix\/.+/']
+    title: ['/^fix(\(.+\))?!?:/i']
+  - label: 'performance'
+    branch: ['/^perf\/.+/']
+    title: ['/^perf(\(.+\))?!?:/i']
+  - label: 'breaking'
+    title: ['/^\w+(\(.+\))?!:/']
+    body: ['/BREAKING[ -]CHANGE/']
+
+# 关于 $PREVIOUS_TAG：它取自上一个「已发布」的 Release。首个公开版本（v0.3.1）之前没有任何 Release，
+# 该变量为空，对比链接会失效——但首个正式 Release 由 release.yml 生成，不使用本草稿；
+# v0.3.1 发布之后，后续草稿的对比链接即可正常工作。
+template: |
+  ## 变更
+
+  $CHANGES
+
+  **完整变更对比**：https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+  （若此处缺少起始 tag，说明这是首个版本，请改看 https://github.com/$OWNER/$REPOSITORY/commits/v$RESOLVED_VERSION ）
+
+  > 发布说明以 [CHANGELOG.md](https://github.com/$OWNER/$REPOSITORY/blob/main/CHANGELOG.md) 为准。

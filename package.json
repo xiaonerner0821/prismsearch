@@ -1,0 +1,121 @@
+{
+  "name": "prismsearch",
+  "version": "0.3.1",
+  "description": "A multi-engine web search MCP server - PrismSearch / 多引擎网页搜索 MCP 服务器",
+  "mcpName": "io.github.xiaonerner0821/prismsearch",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "prismsearch": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run --project unit",
+    "test:all": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:live": "cross-env RUN_LIVE_TESTS=1 vitest run --project integration",
+    "test:worker": "npm --prefix workers/ts-worker test",
+    "test:worker:py": "node scripts/py-worker-task.mjs test",
+    "test:everything": "npm run test && npm run test:worker && npm run test:worker:py",
+    "lint": "eslint src/ tests/ scripts/ workers/",
+    "lint:fix": "eslint src/ tests/ scripts/ workers/ --fix",
+    "lint:py": "node scripts/py-worker-task.mjs lint",
+    "typecheck": "tsc --noEmit",
+    "typecheck:worker": "npm --prefix workers/ts-worker run typecheck",
+    "clean": "node -e \"import('node:fs').then(fs=>fs.rmSync('dist',{recursive:true,force:true}))\"",
+    "verify:pack": "npm pack --dry-run",
+    "selfcheck": "npm run build && node scripts/selfcheck.mjs",
+    "prepublishOnly": "npm run clean && npm run lint && npm run test && npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "search",
+    "web-search",
+    "image-search",
+    "prismsearch",
+    "model-context-protocol",
+    "claude",
+    "llm",
+    "wechat",
+    "baidu",
+    "bing",
+    "google",
+    "duckduckgo",
+    "fetch",
+    "scraper",
+    "ai-agent",
+    "web-scraping"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaonerner0821/prismsearch.git"
+  },
+  "homepage": "https://github.com/xiaonerner0821/prismsearch#readme",
+  "bugs": "https://github.com/xiaonerner0821/prismsearch/issues",
+  "author": "xiaonerner0821 <xiaonerner0821@gmail.com> (https://github.com/xiaonerner0821)",
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/xiaonerner0821"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "config/default.yaml",
+    "config/http.yaml",
+    "assets/logo.svg",
+    "LICENSE",
+    "NOTICE",
+    "docs/THIRD-PARTY-NOTICES.md",
+    "docs/OPERATIONS.md",
+    "docs/worker-protocol.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "README.md",
+    "README.zh-CN.md"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/node": "^2.1.2",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "@mozilla/readability": "^0.6.0",
+    "better-sqlite3": "^12.10.0",
+    "cheerio": "^1.2.0",
+    "express": "^5.3.0",
+    "linkedom": "^0.18.14",
+    "redis": "^5.10.0",
+    "smol-toml": "^1.9.1",
+    "turndown": "^7.2.4",
+    "undici": "^8.12.3",
+    "unpdf": "^1.9.1",
+    "winston": "^3.19.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.64.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.18.0",
+    "@types/turndown": "^5.0.6",
+    "@typescript-eslint/eslint-plugin": "^8.72.1",
+    "@typescript-eslint/parser": "^8.72.1",
+    "@vitest/coverage-v8": "^4.1.12",
+    "cross-env": "^10.1.0",
+    "eslint": "^10.13.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.12"
+  }
+}

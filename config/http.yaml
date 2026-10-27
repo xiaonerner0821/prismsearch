@@ -1,0 +1,28 @@
+# ============================================================
+# PrismSearch HTTP 传输模式示例配置
+#
+# 用法：
+#   npx prismsearch config/http.yaml
+#   或开发模式：npm run start -- config/http.yaml
+#
+# 此文件仅覆盖与默认配置（config/default.yaml）不同的项，
+# 未列出的配置项自动使用默认值。
+# ============================================================
+
+server:
+  # 使用 Streamable HTTP 传输（默认是 stdio）
+  transport: http
+  # 监听端口
+  port: 3000
+  # 监听地址：127.0.0.1 仅本机可访问；改为 0.0.0.0 允许局域网/外部访问
+  # 对外开放时强烈建议同时启用下方 auth 认证
+  host: "127.0.0.1"
+
+# 远程模式鉴权（可选，默认关闭）。启用后客户端需携带：
+#   Authorization: Bearer <token>
+# security:
+#   auth:
+#     enabled: true
+#     type: bearer
+#     tokens:
+#       - "请替换为足够长的随机 token"

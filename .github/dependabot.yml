@@ -1,0 +1,77 @@
+# Dependabot 依赖更新配置
+# 每周自动检查依赖更新并发起 Pull Request
+# 用到的标签（dependencies、worker、docker、ci）由 scripts/dev/setup-github.* 预先创建；
+# 标签不存在时 Dependabot 会在 PR 里报错且不打标签
+version: 2
+
+updates:
+  # 主项目 npm 依赖
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      # 开发依赖打包成一个 PR，减少噪音
+      dev-dependencies:
+        dependency-type: development
+      # MCP SDK 两个包需要同步升级
+      mcp-sdk:
+        patterns: ['@modelcontextprotocol/*']
+
+  # TS Worker
+  - package-ecosystem: npm
+    directory: /workers/ts-worker
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    labels: [dependencies, worker]
+    groups:
+      ts-worker:
+        patterns: ['*']
+
+  # Python Worker
+  - package-ecosystem: pip
+    directory: /workers/py-worker
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    labels: [dependencies, worker]
+    groups:
+      py-worker:
+        patterns: ['*']
+
+  # 各 Dockerfile 的基础镜像
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+    labels: [dependencies, docker]
+  - package-ecosystem: docker
+    directory: /workers/ts-worker
+    schedule:
+      interval: weekly
+    labels: [dependencies, docker]
+  - package-ecosystem: docker
+    directory: /workers/py-worker
+    schedule:
+      interval: weekly
+    labels: [dependencies, docker]
+
+  # docker-compose.yml 中直接引用的第三方镜像（redis）
+  - package-ecosystem: docker-compose
+    directory: /docker
+    schedule:
+      interval: weekly
+    labels: [dependencies, docker]
+
+  # GitHub Actions 版本（各 workflow 已 pin 到 commit SHA，Dependabot 会连同 # vX.Y.Z 注释一起更新）
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies, ci]
+    groups:
+      actions:
+        patterns: ['*']

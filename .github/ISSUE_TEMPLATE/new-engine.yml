@@ -1,0 +1,71 @@
+name: 新搜索引擎 / New Search Engine
+description: 请求添加新的搜索引擎支持 / Request support for a new search engine
+labels: ['new-engine']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        已内置的引擎 / Built-in engines：google、bing、brave、duckduckgo、baidu、sogou、so（360）、yandex、wechat（微信公众号）。
+        已有引擎的问题请使用 Bug 报告模板 / For issues with an existing engine, use the Bug Report template.
+
+  - type: input
+    id: name
+    attributes:
+      label: 引擎名称 / Engine name
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: 网址 / URL
+      placeholder: https://
+    validations:
+      required: true
+
+  - type: textarea
+    id: features
+    attributes:
+      label: 引擎特点 / Features
+      description: 该引擎的特点和适用场景（语言、地区、内容类型）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: access
+    attributes:
+      label: 接入方式 / Access method
+      options:
+        - 有公开 API / Has public API
+        - 仅网页抓取 / Web scraping only
+        - 两者都有 / Both
+        - 不确定 / Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: api-terms
+    attributes:
+      label: API 文档与免费额度 / API docs & free tier
+      description: 如有 API，请附上文档链接与免费额度
+
+  - type: textarea
+    id: limitations
+    attributes:
+      label: 已知限制 / Known Limitations
+      description: 已知的反爬措施（验证码、JS 渲染、TLS 指纹）、地区限制等
+
+  - type: textarea
+    id: compliance
+    attributes:
+      label: 服务条款、robots 与版权 / Terms, robots and copyright
+      description: 附上公开条款或 robots 链接，说明允许的使用方式、署名/再分发限制、是否需要账号或授权；不要附 Cookie、API Key、个人数据或绕过验证码的方法。 / Link public terms or robots policies and explain permitted use, attribution/redistribution limits and authorization requirements. Do not include credentials, personal data or CAPTCHA bypass instructions.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: 是否愿意贡献实现 / Willing to Contribute
+      options:
+        - label: 是，我愿意按贡献指南实现 / Yes, I'll implement it following CONTRIBUTING

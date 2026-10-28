@@ -59,10 +59,10 @@ For Docker, see the `with-workers` profile in [`docker/docker-compose.yml`](../.
 
 ## Dependency lock
 
-The Docker image installs dependencies from `requirements.lock` (hashed, targeting Linux / CPython 3.12). Regenerate it after changing dependencies in `pyproject.toml`:
+The Docker image installs dependencies from `requirements.lock` (hashed, targeting Linux and the lowest supported CPython, 3.10). Regenerate it after changing dependencies in `pyproject.toml`:
 
 ```bash
-uv pip compile pyproject.toml --generate-hashes --python-version 3.12 --python-platform linux -o requirements.lock
+uv pip compile pyproject.toml --generate-hashes --python-version 3.10 --python-platform linux -o requirements.lock
 ```
 
 ## Implementation notes

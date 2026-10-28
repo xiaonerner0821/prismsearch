@@ -59,10 +59,10 @@ Docker 部署见 [`docker/docker-compose.yml`](../../docker/docker-compose.yml) 
 
 ## 依赖锁定
 
-Docker 镜像按 `requirements.lock`（带 hash，针对 Linux / CPython 3.12）安装依赖。修改 `pyproject.toml` 的依赖后重新生成：
+Docker 镜像按 `requirements.lock`（带 hash，针对 Linux / 最低支持版本 CPython 3.10）安装依赖。锁文件必须按 `requires-python` 的下限解析，否则在低版本上装不上（例如按 3.12 解析会引入要求 3.11+ 的包）。修改 `pyproject.toml` 的依赖后重新生成：
 
 ```bash
-uv pip compile pyproject.toml --generate-hashes --python-version 3.12 --python-platform linux -o requirements.lock
+uv pip compile pyproject.toml --generate-hashes --python-version 3.10 --python-platform linux -o requirements.lock
 ```
 
 ## 实现要点

@@ -12,7 +12,7 @@
 #   https://hub.docker.com/_/node/tags?name=22-alpine
 
 # 阶段1：安装依赖并构建 TypeScript
-FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS builder
+FROM node:26-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS builder
 WORKDIR /app
 # 没有匹配的预编译包时（如 QEMU 构建 arm64），better-sqlite3 需要从源码编译
 RUN apk add --no-cache python3 make g++
@@ -29,7 +29,7 @@ RUN npm run build \
     && npm cache clean --force
 
 # 阶段2：生产运行环境
-FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS runner
+FROM node:26-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS runner
 WORKDIR /app
 
 COPY --from=builder /app/package.json ./

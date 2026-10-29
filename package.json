@@ -108,14 +108,14 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
-    "@types/node": "^22.18.0",
+    "@types/node": "^26.6.5",
     "@types/turndown": "^5.0.6",
     "@typescript-eslint/eslint-plugin": "^8.72.1",
     "@typescript-eslint/parser": "^8.72.1",
-    "@vitest/coverage-v8": "^4.1.12",
+    "@vitest/coverage-v8": "^5.0.5",
     "cross-env": "^10.1.0",
     "eslint": "^10.13.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "^5.0.5"
   }
 }

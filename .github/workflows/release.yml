@@ -281,7 +281,10 @@ jobs:
             unset NODE_AUTH_TOKEN || true
           fi
 
-          npm publish release-artifacts/*.tgz --ignore-scripts --provenance --access public "${TAG_ARGS[@]}"
+          # 必须带 ./ 前缀：npm 会把 "dir/file.tgz" 解析成 GitHub 简写 "user/repo" 并尝试 git ls-remote
+          TARBALL="./release-artifacts/$(node -p "require('./package.json').name + '-' + require('./package.json').version + '.tgz'")"
+          test -f "$TARBALL"
+          npm publish "$TARBALL" --ignore-scripts --provenance --access public "${TAG_ARGS[@]}"
 
   # 多架构容器镜像
   publish-images:

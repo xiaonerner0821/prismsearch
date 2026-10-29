@@ -21,7 +21,7 @@
 ```json
 {
   "status": "ok",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "capabilities": ["http", "browser"],
   "inFlight": 2,
   "maxConcurrency": 8

@@ -1,6 +1,6 @@
 [project]
 name = "prismsearch-py-worker"
-version = "0.3.1"
+version = "0.3.2"
 description = "PrismSearch 抓取 Worker（Python：curl_cffi + trafilatura），实现 docs/worker-protocol.md 定义的 HTTP+JSON 协议"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

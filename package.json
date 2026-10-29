@@ -1,6 +1,6 @@
 {
   "name": "prismsearch",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A multi-engine web search MCP server - PrismSearch / 多引擎网页搜索 MCP 服务器",
   "mcpName": "io.github.xiaonerner0821/prismsearch",
   "license": "Apache-2.0",

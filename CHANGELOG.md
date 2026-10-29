@@ -7,6 +7,19 @@
 
 ## [未发布]
 
+## [0.3.2] - 2026-10-29
+
+首个公开版本后的维护版本，运行时代码与 0.3.1 相同。
+
+### 修复
+
+- 发布流水线：`npm publish` 改为用带 `./` 前缀的明确 tarball 路径，避免 npm 把 `release-artifacts/xxx.tgz` 误解析为 GitHub 仓库简写。
+- Logo：按棱镜折射的真实光路重绘，入射光止于棱镜表面，各色光都向底边偏折（红光最小、紫光最大）。
+
+### 工程与维护
+
+- `server.json` 迁移到 MCP Registry schema 2025-12-11，同步更新本地校验用的官方 schema。
+
 ## [0.3.1] - 2026-10-28
 
 0.3.0 的 tag 已在本地创建但未推送、未发布到任何渠道；0.3.1 是实际首个公开版本，包含开源前的安全加固。
@@ -185,5 +198,6 @@
 - 代理池，支持轮询与失败冷却
 - Docker 多阶段构建与 docker-compose 编排
 
-[未发布]: https://github.com/xiaonerner0821/prismsearch/compare/v0.3.1...HEAD
+[未发布]: https://github.com/xiaonerner0821/prismsearch/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/xiaonerner0821/prismsearch/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/xiaonerner0821/prismsearch/releases/tag/v0.3.1

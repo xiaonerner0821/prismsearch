@@ -179,6 +179,21 @@ Or add to your MCP settings:
 
 On Windows, if the client cannot find `npx`, set `command` to `"cmd"` and `args` to `["/c", "npx", "-y", "prismsearch"]`.
 
+### Use as an Agent Skill
+
+[`skills/prismsearch/SKILL.md`](skills/prismsearch/SKILL.md) is an [Agent Skill](https://agentskills.io) that teaches the agent when to use each tool: search first and then read the source pages, use `timeRange` / `aggregate` mode, fall back to browser rendering, page through long documents, and handle engine failures. The MCP server above still has to be connected; the skill only adds usage guidance.
+
+To install it for Claude Code, copy the folder into your skills directory:
+
+```bash
+# All projects
+cp -r skills/prismsearch ~/.claude/skills/
+# Current project only
+cp -r skills/prismsearch .claude/skills/
+```
+
+Other agents that support the Agent Skills format can load the same folder.
+
 ### Engine capabilities
 
 | Engine | Web | Image | Method | Default | Notes |

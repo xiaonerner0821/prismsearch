@@ -179,6 +179,21 @@ claude mcp add prismsearch -- npx -y prismsearch
 
 Windows 上如果客户端找不到 `npx`，把 `command` 改为 `"cmd"`，`args` 改为 `["/c", "npx", "-y", "prismsearch"]`。
 
+### 作为 Agent Skill 使用
+
+[`skills/prismsearch/SKILL.md`](skills/prismsearch/SKILL.md) 是一个 [Agent Skill](https://agentskills.io)，告诉 agent 每个工具什么时候用：先搜索再读原文、何时用 `timeRange` 和 `aggregate` 模式、抓取失败时改用浏览器渲染、长文分段读取、引擎失败时如何处理。它只提供使用指引，仍需先按上文连接 MCP 服务器。
+
+在 Claude Code 中安装，把整个目录复制到 skills 目录即可：
+
+```bash
+# 对所有项目生效
+cp -r skills/prismsearch ~/.claude/skills/
+# 只对当前项目生效
+cp -r skills/prismsearch .claude/skills/
+```
+
+其他支持 Agent Skills 格式的 agent 也可以直接加载这个目录。
+
 ### 引擎能力一览
 
 | 引擎 | 网页 | 图片 | 方式 | 默认 | 说明 |

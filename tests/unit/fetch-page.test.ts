@@ -163,6 +163,39 @@ describe('fetch_page http → browser 自动升级', () => {
     expect(d.cache.store.size).toBe(0);
   });
 
+  it('403 空白拦截页同样升级', async () => {
+    const http = httpFetcher('<html><body><h1>Forbidden</h1></body></html>', { statusCode: 403, content: 'Forbidden' });
+    const browser = browserFetcher();
+    const r = await handleFetchPage({ url: 'https://a.test/' }, deps({ http, browser }));
+    expect(r.fetchedBy).toBe('browser');
+    expect(r.warnings?.join()).toMatch(/疑似拦截非浏览器请求，已自动改用浏览器重抓/);
+  });
+
+  it('浏览器不可用时仍检测骨架页，给出启用提示且不缓存', async () => {
+    const http = httpFetcher(SKELETON);
+    const d = deps({ http });
+    const r = await handleFetchPage({ url: 'https://a.test/' }, d);
+    expect(http.fetch.mock.calls[0][0].includeRawHtml).toBe(true);
+    expect(r.fetchedBy).toBe('http');
+    expect(r.rawHtml).toBeUndefined();
+    expect(r.warnings?.join()).toMatch(/骨架页.*浏览器抓取不可用.*playwright install chromium/);
+    expect(d.cache.store.size).toBe(0);
+  });
+
+  it('浏览器不可用、页面正常时不附 warning', async () => {
+    const r = await handleFetchPage({ url: 'https://a.test/' }, deps({ http: httpFetcher(ARTICLE) }));
+    expect(r.warnings).toBeUndefined();
+  });
+
+  it('autoBrowserUpgrade=false 时既不检测也不升级', async () => {
+    const http = httpFetcher(SKELETON);
+    const browser = browserFetcher();
+    const r = await handleFetchPage({ url: 'https://a.test/' }, deps({ http, browser }, { autoBrowserUpgrade: false }));
+    expect(http.fetch.mock.calls[0][0].includeRawHtml).toBeUndefined();
+    expect(browser.fetch).not.toHaveBeenCalled();
+    expect(r.warnings).toBeUndefined();
+  });
+
   it('format=html 时只在 content 里返回一份 HTML（不再重复 rawHtml）', async () => {
     const r = await handleFetchPage({ url: 'https://a.test/', format: 'html', method: 'http' }, deps({ http: httpFetcher(ARTICLE, { content: ARTICLE }) }));
     expect(r.content).toBe(ARTICLE);

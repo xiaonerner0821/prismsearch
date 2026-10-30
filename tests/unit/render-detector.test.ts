@@ -45,6 +45,22 @@ describe('detectJsRequiredPage', () => {
     expect(detectJsRequiredPage({ text: 'hello world' }).needsBrowser).toBe(false);
   });
 
+  it('403 / 503 且几乎无正文 → 疑似拦截非浏览器请求', () => {
+    const wall = '<html><head><title>Forbidden</title></head><body><h1>403 Forbidden</h1></body></html>';
+    expect(detectJsRequiredPage({ html: wall, statusCode: 403, contentType: 'text/html' })).toMatchObject({ needsBrowser: true, kind: 'blocked' });
+    expect(detectJsRequiredPage({ html: wall, statusCode: 503 })).toMatchObject({ needsBrowser: true, kind: 'blocked' });
+    // 无 rawHtml（Worker 结果）时按正文长度判断
+    expect(detectJsRequiredPage({ text: 'Access denied', statusCode: 403 })).toMatchObject({ needsBrowser: true, kind: 'blocked' });
+  });
+
+  it('403 但正文充足、其他状态码、非 HTML 的 403 不判定为拦截', () => {
+    expect(detectJsRequiredPage({ html: article, statusCode: 403, contentType: 'text/html' }).needsBrowser).toBe(false);
+    const wall = '<html><body><h1>Forbidden</h1></body></html>';
+    expect(detectJsRequiredPage({ html: wall, statusCode: 404 }).needsBrowser).toBe(false);
+    expect(detectJsRequiredPage({ html: wall, statusCode: 429 }).needsBrowser).toBe(false);
+    expect(detectJsRequiredPage({ html: '{"error":"forbidden"}', statusCode: 403, contentType: 'application/json' }).needsBrowser).toBe(false);
+  });
+
   it('visibleTextOf 去掉脚本、样式与标签', () => {
     expect(visibleTextOf('<style>p{}</style><p>a&nbsp;b</p><script>x()</script>')).toBe('a b');
   });

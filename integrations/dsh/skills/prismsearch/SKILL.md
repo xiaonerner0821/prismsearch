@@ -63,7 +63,9 @@ Parameters: `query` (required, max 500 chars), `engine`, `region` (e.g. `us`, `c
 
 Parameters: `url` (required, http/https only), `format` (`markdown` default | `text` | `html`), `method` (`http` | `browser`), `waitForSelector`, `timeout` (1000-120000 ms), `maxLength` (default 20000 chars), `startIndex`.
 
-- Start with the default (fast HTTP). If the content is empty, a "enable JavaScript" shell, or clearly missing the main text, retry with `method: "browser"` (renders JavaScript; needs Playwright or a configured browser worker). Add `waitForSelector` for pages that load content late.
+- Start with the default (leave `method` unset). PrismSearch fetches over HTTP and, when the page turns out to be a JavaScript shell, an anti-bot challenge or a near-empty 403/503, re-fetches it in a browser automatically; `fetchedBy` and `warnings` tell you what happened.
+- If `warnings` say browser fetching is unavailable, retrying with `method: "browser"` will not help: the server has no browser configured. Tell the user the page needs JavaScript rendering (the warning includes how to enable it) and fall back to another source, e.g. a different search result.
+- When a browser is available but the main text is still missing (content that loads late), retry with `method: "browser"` plus `waitForSelector` for an element of the main content.
 - Long pages: if `truncated` is true, call again with `startIndex` set to the returned `nextStartIndex` to read the next segment. Only continue while the content is still relevant.
 - PDFs are supported; just pass the PDF URL.
 - Private/internal addresses (localhost, 10.x, 192.168.x, etc.) are blocked by design (SSRF protection). Do not try to work around it.

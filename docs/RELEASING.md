@@ -249,8 +249,7 @@ README 顶部放一段 10～20 秒的演示效果最好，建议内容：在 Cla
    - 删除 Release Drafter 留下的同名草稿（正式 Release 由 release.yml 创建）；
    - 更新 MCP Registry：在仓库根目录执行 `mcp-publisher publish`（登录过期时先 `mcp-publisher login github`）；
    - 预发布版本（如 `1.0.0-rc.1`）会以 `next` 标签发布到 npm，GHCR 不更新 `latest`，GitHub Release 标记为 Pre-release。
-   - 发布 DeepSeek Harness 插件包（见第三节）。必须在主包 `prismsearch@X.Y.Z` 已上 npm 之后再发，
-     否则插件启动时 `npx prismsearch@X.Y.Z` 会找不到版本。
+   - DeepSeek Harness 插件包由 release.yml 的 `publish-dsh-plugin` job 在主包之后自动发布（见第三节），无需手动操作。
 
 ### 发布失败怎么办
 
@@ -270,28 +269,29 @@ README 顶部放一段 10～20 秒的演示效果最好，建议内容：在 Cla
 `@deepseek-ai/dsh-mcp-client` 声明为 peer：DSH 宿主自带它，插件不得另装一份——
 另装的 rc 版本会被 DSH 的版本兼容检查拒绝加载。
 
-### 首次发布（新包需要临时 token）
+### 首次发布（0.3.2，已完成）
 
-npm 的 Trusted Publisher 只能给已存在的包配置，所以第一个版本手动发：
+npm 的 Trusted Publisher 只能给已存在的包配置，所以第一个版本在本机手动发布：
 
-1. npmjs.com → Access Tokens → Generate New Token → **Granular**，Packages 选 *All packages* 的 Read and write
-   （新包尚不存在，无法按包限定），有效期 1 天。
-2. 本地发布：
+```bash
+npm login                            # 浏览器登录 + 2FA
+node scripts/sync-dsh-plugin.mjs --check
+cd integrations/dsh
+npm pack --dry-run                   # 9 个文件：LICENSE README.md cordis.patch.yml icon.svg lib/index.js locale/*.json package.json skills/…
+npm publish --access public          # 再次 2FA；「5 分钟内同 IP 免验证」选项不必勾选
+npm logout                           # 作废本机会话 token
+```
 
-   ```bash
-   node scripts/sync-dsh-plugin.mjs --check
-   cd integrations/dsh
-   npm pack --dry-run                # 应为 9 个文件：LICENSE README.md cordis.patch.yml icon.svg lib/index.js locale/*.json package.json skills/…
-   npm publish --access public       # 会提示输入 token 或走浏览器登录
-   ```
-
-3. 在包页面 Settings → Trusted Publisher 绑定 GitHub Actions：仓库 `xiaonerner0821/prismsearch`、
-   workflow `release.yml`、environment `release`。
-4. Settings → Publishing access 选 *Require two-factor authentication and disallow tokens*，然后删除第 1 步的 token。
+随后在包页面 Settings → Trusted Publisher 绑定 GitHub Actions（仓库 `xiaonerner0821/prismsearch`、
+workflow `release.yml`、environment `release`），并把 Publishing access 设为
+*Require two-factor authentication and disallow tokens*。
 
 ### 之后每次发版
 
-主包发布成功后执行：`cd integrations/dsh && npm publish`（或把这一步接入 release.yml，届时走 OIDC 自动带 provenance）。
+无需手动操作。release.yml 在 `publish-npm`（主包）成功后运行独立的 `publish-dsh-plugin` job：
+先 `sync-dsh-plugin.mjs --check`，再通过 OIDC 发布 `dsh-plugin-prismsearch@<同版本>`（带 provenance，
+预发布版本同样打 `next` 标签）。该版本已存在时跳过，因此失败后可以在 Actions 中单独重跑这个 job；
+它失败也不会阻塞镜像发布和 GitHub Release。
 
 ### 本地实测
 

@@ -286,6 +286,47 @@ jobs:
           test -f "$TARBALL"
           npm publish "$TARBALL" --ignore-scripts --provenance --access public "${TAG_ARGS[@]}"
 
+  # DeepSeek Harness 插件包：必须在主包之后发布，插件启动时会 npx prismsearch@<同版本>。
+  # 单独成 job：失败不阻塞镜像与 GitHub Release，且可单独重跑（版本已存在时跳过）。
+  # 走 Trusted Publishing（该包已在 npm 上单独绑定本 workflow 与 release environment）。
+  publish-dsh-plugin:
+    runs-on: ubuntu-latest
+    needs: [verify, publish-npm]
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # 不传 registry-url，原因同 publish-npm
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: 升级 npm
+        run: npm install -g npm@^11.5.1
+
+      - name: 发布 DeepSeek Harness 插件包
+        shell: bash
+        env:
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          node scripts/sync-dsh-plugin.mjs --check
+          TAG_ARGS=()
+          if [ "$PRERELEASE" = "true" ]; then
+            TAG_ARGS=(--tag next)
+          fi
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$(npm view "dsh-plugin-prismsearch@$VERSION" version 2>/dev/null || true)" = "$VERSION" ]; then
+            echo "dsh-plugin-prismsearch@$VERSION 已存在，跳过"
+            exit 0
+          fi
+          cd integrations/dsh
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"
+          npm publish "$RUNNER_TEMP/dsh-plugin-prismsearch-$VERSION.tgz" --ignore-scripts --provenance --access public "${TAG_ARGS[@]}"
+
   # 多架构容器镜像
   publish-images:
     runs-on: ubuntu-latest

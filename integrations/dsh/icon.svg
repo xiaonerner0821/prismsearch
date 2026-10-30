@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="beam" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="prismBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b3a67"/>
+      <stop offset="1" stop-color="#141c33"/>
+    </linearGradient>
+  </defs>
+
+  <!--
+    光路按 Snell 定律做二维光线追迹：等边棱镜，白光以 40° 仰角射到左面中点，
+    在左、右两面各折射一次；各色光都向底边偏折，红光偏折最小、紫光最大。
+    为便于辨认放大了色散量（相当于折射率 1.30～1.91）。
+    光线先画、棱镜后画，由棱镜本体遮住光线在界面处的端头，保证光线恰好止于棱镜表面。
+  -->
+
+  <!-- 背景 -->
+  <rect x="0" y="0" width="240" height="240" rx="52" fill="#0d1424"/>
+
+  <!-- 入射白光：止于左面 P(85,111.69) -->
+  <line x1="31" y1="156.5" x2="85" y2="111.69" stroke="url(#beam)" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- 出射光谱：从右面 Q 点射出 -->
+  <g stroke-linecap="round" stroke-width="7">
+    <line x1="138.05" y1="96.2"   x2="214" y2="80"  stroke="#ff5f56"/>
+    <line x1="141.02" y1="101.34" x2="214" y2="100" stroke="#ffb224"/>
+    <line x1="143.6"  y1="105.81" x2="214" y2="120" stroke="#f6e05e"/>
+    <line x1="145.53" y1="109.14" x2="214" y2="140" stroke="#46c98e"/>
+    <line x1="146.71" y1="111.19" x2="214" y2="160" stroke="#4ea1f3"/>
+    <line x1="147.31" y1="112.23" x2="214" y2="180" stroke="#9d7bea"/>
+  </g>
+
+  <!-- 棱镜本体 -->
+  <polygon points="116,58 54,165.39 178,165.39" fill="url(#prismBody)"/>
+
+  <!-- 棱镜内部光路：P → 右面 -->
+  <polygon points="85,111.69 138.05,96.2 147.31,112.23" fill="#ffffff" fill-opacity="0.16"/>
+  <g stroke-width="1.6" opacity="0.9">
+    <line x1="85" y1="111.69" x2="138.05" y2="96.2"   stroke="#ff5f56"/>
+    <line x1="85" y1="111.69" x2="147.31" y2="112.23" stroke="#9d7bea"/>
+  </g>
+
+  <!-- 棱镜轮廓与高光 -->
+  <polygon points="116,58 54,165.39 178,165.39" fill="none" stroke="#8fa3d9" stroke-width="3" stroke-linejoin="round"/>
+  <line x1="112.8" y1="68.7" x2="94.2" y2="101" stroke="#ffffff" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round"/>
+</svg>

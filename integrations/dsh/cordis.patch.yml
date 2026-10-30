@@ -1,0 +1,29 @@
+# DeepSeek Harness bundle patch for PrismSearch.
+#
+# 1. Starts the published `prismsearch` MCP server over stdio. The version is
+#    pinned and kept in sync with the root package.json by
+#    scripts/sync-dsh-plugin.mjs; do not edit it by hand.
+# 2. Serves the bundled PrismSearch skill. The skill root is resolved from the
+#    installed package identity anchored at the DSH profile (Loader baseUrl).
+#
+# dsh-mcp-client strips KEY/TOKEN/SECRET variables from the child environment,
+# so optional API keys are forwarded explicitly. An empty value means "not set".
+# Never write a key literally into this file.
+- insert:
+    - id: prismsearch-plugin-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: prismsearch
+        transport: stdio
+        command: npx
+        args: ['-y', 'prismsearch@0.3.2']
+        env:
+          BRAVE_API_KEY: !!js process.env.BRAVE_API_KEY ?? ''
+          GOOGLE_API_KEY: !!js process.env.GOOGLE_API_KEY ?? ''
+          GOOGLE_CSE_ID: !!js process.env.GOOGLE_CSE_ID ?? ''
+    - id: prismsearch-plugin-skill
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: prismsearch
+        includeDefaultRoots: false
+        bundledSkillDir: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('dsh-plugin-prismsearch/package.json')), 'skills')

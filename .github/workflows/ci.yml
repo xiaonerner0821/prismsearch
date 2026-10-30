@@ -61,6 +61,9 @@ jobs:
       - name: ESLint 代码检查
         run: npm run lint
 
+      - name: DeepSeek Harness 插件包与主包同步
+        run: node scripts/sync-dsh-plugin.mjs --check
+
       - name: TypeScript 类型检查
         run: npm run typecheck
 

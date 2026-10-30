@@ -225,6 +225,7 @@ README 顶部放一段 10～20 秒的演示效果最好，建议内容：在 Cla
    # 手动修改：workers/py-worker/pyproject.toml 的 version，
    #          server.json 的 version 与 packages[].version
    node scripts/check-versions.mjs                  # 必须通过
+   node scripts/sync-dsh-plugin.mjs                 # 同步 DSH 插件包版本、固定的 prismsearch@版本、SKILL.md
    ```
 
 3. **更新 CHANGELOG**：把 `## [未发布]` 下的条目移到新的 `## [X.Y.Z] - YYYY-MM-DD` 标题下
@@ -248,6 +249,8 @@ README 顶部放一段 10～20 秒的演示效果最好，建议内容：在 Cla
    - 删除 Release Drafter 留下的同名草稿（正式 Release 由 release.yml 创建）；
    - 更新 MCP Registry：在仓库根目录执行 `mcp-publisher publish`（登录过期时先 `mcp-publisher login github`）；
    - 预发布版本（如 `1.0.0-rc.1`）会以 `next` 标签发布到 npm，GHCR 不更新 `latest`，GitHub Release 标记为 Pre-release。
+   - 发布 DeepSeek Harness 插件包（见第三节）。必须在主包 `prismsearch@X.Y.Z` 已上 npm 之后再发，
+     否则插件启动时 `npx prismsearch@X.Y.Z` 会找不到版本。
 
 ### 发布失败怎么办
 
@@ -256,3 +259,46 @@ README 顶部放一段 10～20 秒的演示效果最好，建议内容：在 Cla
 - **npm 已发布但后续 job 失败**：npm 同一版本号不能重复发布，**不要**删 tag 重推，直接在 Actions 中重跑失败的 job。
 - **发布了有问题的版本**：npm 上执行 `npm deprecate prismsearch@X.Y.Z "原因"`，然后尽快发修订版；
   除非 72 小时内且无人依赖，否则不要 `npm unpublish`。
+
+## 三、DeepSeek Harness 插件包 `dsh-plugin-prismsearch`
+
+插件包位于 `integrations/dsh/`，只含配置：`cordis.patch.yml` 插入一行 `@deepseek-ai/dsh-mcp-client`
+（以 `npx -y prismsearch@X.Y.Z` 启动）和一行 `@deepseek-ai/dsh-skill-filesystem`（提供随包 skill）。
+版本号始终与主包相同。`icon.svg`、`LICENSE`、`skills/prismsearch/SKILL.md` 由 `scripts/sync-dsh-plugin.mjs`
+从根目录复制，不要手改；CI 会运行 `--check` 拦截未同步的提交。
+
+`@deepseek-ai/dsh-mcp-client` 声明为 peer：DSH 宿主自带它，插件不得另装一份——
+另装的 rc 版本会被 DSH 的版本兼容检查拒绝加载。
+
+### 首次发布（新包需要临时 token）
+
+npm 的 Trusted Publisher 只能给已存在的包配置，所以第一个版本手动发：
+
+1. npmjs.com → Access Tokens → Generate New Token → **Granular**，Packages 选 *All packages* 的 Read and write
+   （新包尚不存在，无法按包限定），有效期 1 天。
+2. 本地发布：
+
+   ```bash
+   node scripts/sync-dsh-plugin.mjs --check
+   cd integrations/dsh
+   npm pack --dry-run                # 应为 9 个文件：LICENSE README.md cordis.patch.yml icon.svg lib/index.js locale/*.json package.json skills/…
+   npm publish --access public       # 会提示输入 token 或走浏览器登录
+   ```
+
+3. 在包页面 Settings → Trusted Publisher 绑定 GitHub Actions：仓库 `xiaonerner0821/prismsearch`、
+   workflow `release.yml`、environment `release`。
+4. Settings → Publishing access 选 *Require two-factor authentication and disallow tokens*，然后删除第 1 步的 token。
+
+### 之后每次发版
+
+主包发布成功后执行：`cd integrations/dsh && npm publish`（或把这一步接入 release.yml，届时走 OIDC 自动带 provenance）。
+
+### 本地实测
+
+```bash
+dsh plugin --profile prismsearch-test add file:<仓库绝对路径>/integrations/dsh
+dsh --profile prismsearch-test
+```
+
+若本机 profile 里已经手动配置了 `serverName: prismsearch` 的 MCP 行，两行会冲突，后加载的一行失败；
+实测前把手动那行的 `serverName` 改名或禁用。

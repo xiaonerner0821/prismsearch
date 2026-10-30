@@ -194,6 +194,16 @@ cp -r skills/prismsearch .claude/skills/
 
 Other agents that support the Agent Skills format can load the same folder.
 
+### Use in DeepSeek Harness
+
+[`dsh-plugin-prismsearch`](https://www.npmjs.com/package/dsh-plugin-prismsearch) is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that installs both the MCP server and the skill in one step. In the DSH Web GUI, open **Plugins → Add plugin** and enter:
+
+```
+dsh-plugin-prismsearch
+```
+
+The plugin starts a pinned `prismsearch` version through `npx`, so Node.js `>=22.19.0` must be on `PATH`. The first start downloads the package and can take a few seconds. Tools appear as `mcp__prismsearch__web_search` and so on. If `BRAVE_API_KEY`, `GOOGLE_API_KEY` or `GOOGLE_CSE_ID` are set where DSH starts, they are forwarded to the server. If you have already added an MCP entry with `serverName: prismsearch` by hand, remove it or rename it first, otherwise the two entries conflict. See the [plugin README](integrations/dsh/README.md) for details.
+
 ### Engine capabilities
 
 | Engine | Web | Image | Method | Default | Notes |

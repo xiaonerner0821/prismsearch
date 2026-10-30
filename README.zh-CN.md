@@ -194,6 +194,16 @@ cp -r skills/prismsearch .claude/skills/
 
 其他支持 Agent Skills 格式的 agent 也可以直接加载这个目录。
 
+### 在 DeepSeek Harness 中使用
+
+[`dsh-plugin-prismsearch`](https://www.npmjs.com/package/dsh-plugin-prismsearch) 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件，一次安装就同时配好 MCP 服务器和上面的 skill。在 DSH Web 界面打开 **插件 → 添加插件**，输入：
+
+```
+dsh-plugin-prismsearch
+```
+
+插件通过 `npx` 启动固定版本的 `prismsearch`，所以 `PATH` 上需要有 Node.js `>=22.19.0`。首次启动要下载包，可能需要几秒。工具名形如 `mcp__prismsearch__web_search`。启动 DSH 的环境里如果设置了 `BRAVE_API_KEY`、`GOOGLE_API_KEY` 或 `GOOGLE_CSE_ID`，会自动转发给服务器。如果你已经手动配置过 `serverName: prismsearch` 的 MCP 条目，请先删除或改名，否则两者会冲突。详见[插件说明](integrations/dsh/README.md)。
+
 ### 引擎能力一览
 
 | 引擎 | 网页 | 图片 | 方式 | 默认 | 说明 |

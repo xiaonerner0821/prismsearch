@@ -7,6 +7,8 @@
 
 ## [未发布]
 
+## [0.3.3] - 2026-10-30
+
 ### 修复
 
 - `fetch_page`：未启用浏览器抓取时（默认配置，包括 DeepSeek Harness 插件）也会检测前端渲染骨架页、noscript 提示页和反爬挑战页，并在 `warnings` 中说明正文可能缺失以及启用浏览器渲染的方法。此前这类页面会被当作正常结果返回，没有任何提示。
@@ -204,6 +206,7 @@
 - 代理池，支持轮询与失败冷却
 - Docker 多阶段构建与 docker-compose 编排
 
-[未发布]: https://github.com/xiaonerner0821/prismsearch/compare/v0.3.2...HEAD
+[未发布]: https://github.com/xiaonerner0821/prismsearch/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/xiaonerner0821/prismsearch/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/xiaonerner0821/prismsearch/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/xiaonerner0821/prismsearch/releases/tag/v0.3.1

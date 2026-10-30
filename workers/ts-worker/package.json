@@ -1,6 +1,6 @@
 {
   "name": "@prismsearch/ts-worker",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "description": "PrismSearch 抓取 Worker（Node + Playwright），实现 docs/worker-protocol.md 定义的 HTTP+JSON 协议",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-prismsearch",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "DeepSeek Harness bundle for PrismSearch: multi-engine web, image & WeChat search plus page/PDF fetching over MCP, no API key required.",
   "license": "Apache-2.0",
   "type": "module",

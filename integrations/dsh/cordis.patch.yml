@@ -16,7 +16,7 @@
         serverName: prismsearch
         transport: stdio
         command: npx
-        args: ['-y', 'prismsearch@0.3.2']
+        args: ['-y', 'prismsearch@0.3.3']
         env:
           BRAVE_API_KEY: !!js process.env.BRAVE_API_KEY ?? ''
           GOOGLE_API_KEY: !!js process.env.GOOGLE_API_KEY ?? ''

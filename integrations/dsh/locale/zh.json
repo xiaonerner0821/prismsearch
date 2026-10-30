@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "PrismSearch 多引擎搜索",
+    "description": "为 Agent 提供多引擎网页、图片与微信公众号搜索，以及网页 / PDF 抓取，无需 API Key。"
+  }
+}

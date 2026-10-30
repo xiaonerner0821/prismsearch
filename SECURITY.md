@@ -24,7 +24,7 @@ PrismSearch 处理搜索引擎凭据并会抓取任意外部 URL，我们非常�
 
 - **GitHub 私密漏洞报告**：仓库页面的 Security → Advisories → Report a vulnerability
   （<https://github.com/xiaonerner0821/prismsearch/security/advisories/new>）
-- **备用邮件**：xiaonerner0821@gmail.com（仅使用项目已公开的安全联络地址，不提供额外个人信息）
+- **备用邮件**：<mailto:xiaonerner0821@gmail.com>（仅使用项目已公开的安全联络地址，不提供额外个人信息）
 
 请在报告中尽量包含：受影响版本、复现步骤、影响范围与可能的修复建议。
 

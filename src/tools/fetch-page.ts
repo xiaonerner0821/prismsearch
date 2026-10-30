@@ -13,7 +13,8 @@
  *   Worker 全部不可用且 fallbackToLocal 时回退到本地抓取器
  * - 否则用本地 http / browser 抓取器
  * - method=browser 而浏览器不可用时退回 http（附 warning）；未指定 method 且 http 结果为
- *   骨架页 / 反爬挑战页时自动改用 browser 重抓。全部尝试共用一个总 deadline。
+ *   骨架页 / 反爬挑战页 / 403、503 空白拦截页时自动改用 browser 重抓，浏览器不可用则只附 warning。
+ *   全部尝试共用一个总 deadline。
  * - SSRF 拦截、内容类型不支持、响应体超限属确定性结论，不换抓取器重试
  *
  * 只缓存 2xx 响应，避免把错误页、反爬页缓存一小时。
@@ -62,8 +63,8 @@ export interface FetchPageToolDeps {
   /** 缓存 TTL（秒），0 不缓存 */
   cacheTtl?: number;
   /**
-   * 未显式指定 method 且走 http 时，若结果是骨架页 / 反爬挑战页且浏览器可用，自动改用 browser 重抓。
-   * 默认 true。
+   * 未显式指定 method 且走 http 时检测骨架页 / 反爬挑战页 / 空白拦截页：浏览器可用则自动改用 browser 重抓，
+   * 不可用则附 warning。默认 true；false 时既不检测也不升级。
    */
   autoBrowserUpgrade?: boolean;
   /** 未传 maxLength 时的默认值 */
@@ -159,6 +160,10 @@ function isBrowserUnavailableError(error: unknown): boolean {
   return findErrorCode(error, ['BROWSER_NOT_INSTALLED']) !== undefined;
 }
 
+/** 浏览器不可用时给调用方的启用方法（warnings 会原样转给 agent / 用户） */
+export const BROWSER_SETUP_HINT =
+  '如需浏览器渲染：安装 playwright 并执行 npx playwright install chromium，再设置 fetcher.browser.enabled=true；或配置支持 browser 的 Worker';
+
 /** 剩余预算低于该值时不再启动新的抓取尝试（降级 / 重抓），直接放弃 */
 export const MIN_ATTEMPT_BUDGET_MS = 1000;
 
@@ -210,8 +215,8 @@ function chooseFetchers(method: FetchMethod, deps: FetchPageToolDeps): Fetcher[]
  * 降级：
  * - 同一 method 内：远端 Worker ↔ 本地抓取器（非确定性错误才换下一个）
  * - method=browser 而浏览器不可用（未装 Playwright 等）：退回 http，并在 warnings 中说明
- * - 未显式指定 method 且走 http：结果为骨架页 / 反爬挑战页且浏览器可用时自动改用 browser 重抓；
- *   显式 method=http 时不升级
+ * - 未显式指定 method 且走 http：结果为骨架页 / 反爬挑战页 / 空白拦截页时，浏览器可用则自动改用
+ *   browser 重抓，不可用则附 warning；显式 method=http 时不检测也不升级
  */
 export async function handleFetchPage(
   params: FetchPageParams,
@@ -236,7 +241,7 @@ export async function handleFetchPage(
     if (httpFetchers.length > 0) {
       fetchers = httpFetchers;
       primaryMethod = 'http';
-      warnings.push('浏览器抓取不可用（未启用或未安装 Playwright，且无支持浏览器渲染的 Worker），已退回 http 抓取，JS 渲染内容可能缺失');
+      warnings.push(`浏览器抓取不可用（未启用或未安装 Playwright，且无支持浏览器渲染的 Worker），已退回 http 抓取，JS 渲染内容可能缺失。${BROWSER_SETUP_HINT}`);
     }
   }
   if (fetchers.length === 0) {
@@ -298,11 +303,9 @@ export async function handleFetchPage(
     if (!r.safe) throw new SsrfBlockedError(`目标被 SSRF 防护拦截: ${r.reason ?? redactUrl(target)}`);
   };
 
-  // 是否可能自动升级到浏览器：此时让 http 抓取器顺带返回 rawHtml 供检测（返回前去掉）
-  const mayUpgrade =
-    params.method === undefined && primaryMethod === 'http' && (deps.autoBrowserUpgrade ?? true) && !!(
-      deps.fetchers.browser || (deps.remote && deps.remote.fetcher.supports('browser'))
-    );
+  // 是否检测「需要浏览器渲染」：此时让 http 抓取器顺带返回 rawHtml 供检测（返回前去掉）。
+  // 浏览器不可用时同样检测：无法升级，但要在 warnings 里告诉调用方拿到的只是空壳 / 拦截页
+  const mayUpgrade = params.method === undefined && primaryMethod === 'http' && (deps.autoBrowserUpgrade ?? true);
 
   let attempts = 0;
   /** 按候选顺序执行一组抓取器；终止性错误抛 FetchPageError，其余失败汇总为 FetchChainError */
@@ -394,7 +397,7 @@ export async function handleFetchPage(
     if (detection.needsBrowser) {
       const browserFetchers = chooseFetchers('browser', deps);
       if (browserFetchers.length === 0) {
-        warnings.push(`${detection.reason}，但浏览器抓取不可用，返回 http 结果`);
+        warnings.push(`${detection.reason}，但浏览器抓取不可用，返回的 http 结果可能缺少正文。${BROWSER_SETUP_HINT}`);
         cacheable = false;
       } else if (remainingBudget() < MIN_ATTEMPT_BUDGET_MS) {
         warnings.push(`${detection.reason}，剩余时间不足，未改用浏览器重抓`);

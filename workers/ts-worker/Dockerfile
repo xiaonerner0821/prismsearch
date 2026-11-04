@@ -9,7 +9,7 @@
 
 # ---------- 阶段1：编译 TypeScript ----------
 # 不设 NODE_ENV=production：npm ci 需要安装 devDependencies（typescript、@types/node）
-FROM node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS build
+FROM node:26-bookworm-slim@sha256:bc0a2afd3b74ce12222fc8bab99271e66257f021078f5f4a5d687a77d280c1d9 AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -20,7 +20,7 @@ COPY src ./src
 RUN npm run build
 
 # ---------- 阶段2：运行环境 ----------
-FROM node:22-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runtime
+FROM node:26-bookworm-slim@sha256:bc0a2afd3b74ce12222fc8bab99271e66257f021078f5f4a5d687a77d280c1d9 AS runtime
 ENV NODE_ENV=production \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 

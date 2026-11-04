@@ -101,7 +101,7 @@ services:
   # 确需从宿主机访问时改为 "127.0.0.1:6379:6379"。
   # 镜像按 digest 固定（tag 仅便于阅读），由 Dependabot（docker-compose 生态）提 PR 更新。
   redis:
-    image: redis:7-alpine@sha256:6ba19c50b56777f5c11c58eff8ddb69d0d5f27ba131cffb63f180ccfd43c66af
+    image: redis:8-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
     profiles:
       - with-redis
     environment:
